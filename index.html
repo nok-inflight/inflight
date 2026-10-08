@@ -524,7 +524,7 @@ document.addEventListener('click', ev => {
 
 let tPing, tOn, tChat, lastId = 0, liveOpen = false;
 
-const DEPT_LABEL = { admin: 'Admin', purchasing: 'Purchasing', inflight: 'Inflight Supply', crew: 'Crew', accounting: 'Accounting', bac: 'BAC' };
+const DEPT_LABEL = { admin: 'Admin', purchasing: 'Purchasing', inflight: 'Inflight Supply', crew: 'Crew', accounting: 'Accounting', bac: 'BAC', guest: 'รอกำหนดกลุ่ม' };
 let CHAT_ROOM = '', CHAT_OK = true;
 
 function chatTime(at) {
@@ -644,7 +644,7 @@ function enterApp(d) {
   TOKEN = d.token; ME = d; store_('tk', TOKEN);
   $('login').style.display = 'none';
   $('who').style.display = 'inline';
-  $('whoName').textContent = d.name + ' (' + d.role + ')';
+  $('whoName').textContent = d.name;
   $('app').dataset.moved = '';
   $('shell').style.display = 'flex';
 
@@ -658,12 +658,12 @@ function enterApp(d) {
   loadLocalSettings();
   applySettings();
   const homeOf = () => SET.home !== 'home' && d.zones.some(z => z.id === SET.home && !z.soon) ? SET.home : 'home';
-  const h0 = homeOf();
+  const h0 = d.mustChange ? 'account' : homeOf();
   go(h0);
   $('app').dataset.moved = '';
   startLive();
   startNotes();
-  loadServerSettings().then(() => { if (!$('app').dataset.moved && homeOf() !== h0) { go(homeOf()); $('app').dataset.moved = ''; } });
+  loadServerSettings().then(() => { if (!ME.mustChange && !$('app').dataset.moved && homeOf() !== h0) { go(homeOf()); $('app').dataset.moved = ''; } });
 }
 
 function go(id) {
@@ -680,7 +680,10 @@ function go(id) {
 }
 
 function showHome() {
-  let h = '<h3>สวัสดี ' + esc(ME.name) + '</h3><div class="cards">';
+  let h = '<h3>สวัสดี ' + esc(ME.name) + '</h3>' +
+    (ME.role === 'guest' ? '<div class="imp">บัญชีของคุณยังไม่ได้กำหนดกลุ่มการใช้งาน กรุณาแจ้งผู้ดูแลระบบ (ส่งข้อความในแชทมุมขวาล่างได้)</div>' : '') +
+    (ME.mustChange ? '<div class="imp warn">คุณยังใช้รหัสผ่านเริ่มต้น (เลขพนักงาน) กรุณาเปลี่ยนที่เมนู บัญชีของฉัน</div>' : '') +
+    '<div class="cards">';
   ME.zones.forEach(z => {
     h += '<div class="card' + (z.soon ? ' soon' : '') + '" data-z="' + esc(z.id) + '"><b>' + esc(z.title) + '</b><small>' + esc(z.desc) + '</small></div>';
   });
@@ -694,7 +697,10 @@ function showSoon(id) {
 }
 
 function showAccount() {
-  $('app').innerHTML = '<h3>บัญชีของฉัน</h3><div class="grid" style="max-width:300px">' +
+  $('app').innerHTML = '<h3>บัญชีของฉัน</h3>' +
+    '<p class="hint">ชื่อผู้ใช้: <b>' + esc(ME.username) + '</b> · ชื่อที่แสดง: <b>' + esc(ME.name) + '</b></p>' +
+    (ME.mustChange ? '<div class="imp warn">คุณยังใช้รหัสผ่านเริ่มต้น (เลขพนักงาน) กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งาน · รหัสผ่านเดิม = เลขพนักงาน เช่น NOK15764</div>' : '') +
+    '<div class="grid" style="max-width:300px">' +
     '<label>รหัสผ่านเดิม<input type="password" id="pw0" autocomplete="current-password"></label>' +
     '<label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว)<input type="password" id="pw1" autocomplete="new-password"></label>' +
     '<label>ยืนยันรหัสผ่านใหม่<input type="password" id="pw2" autocomplete="new-password"></label></div>' +
@@ -704,6 +710,7 @@ function showAccount() {
     try {
       await run('changeMyPassword', $('pw0').value, $('pw1').value);
       toast('เปลี่ยนรหัสผ่านแล้ว', true);
+      if (ME.mustChange) { ME.mustChange = false; go('home'); return; }
       showAccount();
     } catch (e) { toast(e.message); }
   };
@@ -731,10 +738,10 @@ async function showUsers() {
   try { [stU, stS, pu, ps] = await Promise.all([call_('ioStampAll', [TOKEN, 'user']), call_('ioStampAll', [TOKEN, 'staffrow']), call_('ioStamps', [TOKEN, 'users', 'all']), call_('ioStamps', [TOKEN, 'staff', 'all'])]); } catch (e) { }
   if (!$('uBox')) return;
   $('stUsers').textContent = stampText(newerStamp(pu, ps));
-  const acc = {}, used = {};
-  d.users.forEach(u => { acc[String(u.username).toLowerCase()] = u; });
+  const acc = {}, accNo = {}, used = {};
+  d.users.forEach(u => { acc[String(u.username).toLowerCase()] = u; if (u.staffNo) accNo[String(u.staffNo).toUpperCase()] = u; });
   const rows = staff.map(s => {
-    const no = String(s.no).toUpperCase(), u = acc[no.toLowerCase()] || null;
+    const no = String(s.no).toUpperCase(), u = accNo[no] || acc[no.toLowerCase()] || null;
     if (u) used[String(u.username).toLowerCase()] = 1;
     return { no: no, s: s, u: u };
   });
@@ -742,12 +749,15 @@ async function showUsers() {
   const all = others.concat(rows);
   const roleOpts = (sel, none) => (none ? '<option value="">— ไม่มีบัญชี —</option>' : '') + d.roles.map(r => '<option' + (r === sel ? ' selected' : '') + '>' + esc(r) + '</option>').join('');
   const nAcc = all.filter(x => x.u).length;
+  const noAcc = rows.filter(x => !x.u);
   let h = '<div class="utool"><input type="search" id="uQ" placeholder="ค้นหาเลขพนักงาน ชื่อ หรือ username" value="' + esc(UQ) + '">' +
     '<select id="uF" style="max-width:220px"><option value="all">ทั้งหมด</option><option value="acc">มีบัญชีผู้ใช้</option><option value="noacc">ยังไม่มีบัญชี</option><option value="other">บัญชีที่ไม่ใช่พนักงาน</option></select>' +
     '<span class="hint" id="uCnt"></span></div>' +
     '<div class="utool"><button id="bImpX">นำเข้าจากไฟล์ Excel</button><button class="sec" id="bAddS">+ เพิ่มพนักงาน</button><button class="sec" id="bAddU">+ เพิ่มบัญชีผู้ใช้ (ไม่ใช่พนักงาน)</button>' +
+    (noAcc.length ? '<button class="sec" id="bMkAll">สร้างบัญชีให้พนักงานที่ยังไม่มีบัญชี (' + noAcc.length + ' คน)</button>' : '') +
     '<input type="file" id="fImp" accept=".xlsx,.xls,.csv" style="display:none"><span class="hint">พนักงาน ' + staff.length + ' คน · บัญชีผู้ใช้ ' + nAcc + ' บัญชี</span></div>' +
-    '<div class="hint">ไฟล์ Excel: A = Staff No., B = ชื่อ EN, C = นามสกุล EN, D = ชื่อไทย, E = นามสกุลไทย, F = กลุ่ม (ถ้าต้องการสร้างบัญชี), G = รหัสผ่านเริ่มต้น · แถวหัวตารางข้ามให้อัตโนมัติ</div>' +
+    '<div class="hint">บัญชีพนักงานสร้างอัตโนมัติ: Username = ชื่อ.นามสกุล 3 ตัวแรก (เช่น warunyoo.bor) · รหัสผ่านเริ่มต้น = Staff No. (เช่น NOK15764) · กลุ่มเริ่มต้น = guest (รอกำหนดกลุ่ม)</div>' +
+    '<div class="hint">ไฟล์ Excel: A = Staff No., B = ชื่อ EN, C = นามสกุล EN, D = ชื่อไทย, E = นามสกุลไทย, F = กลุ่ม (ไม่ใส่ = guest), G = รหัสผ่านเริ่มต้น (ไม่ใส่ = Staff No.) · แถวหัวตารางข้ามให้อัตโนมัติ</div>' +
     '<div id="impBox"></div>' +
     '<div id="uBulk"><b id="uSelN"></b><span>เปลี่ยนกลุ่มเป็น</span><select id="uBR">' + d.roles.map(r => '<option>' + esc(r) + '</option>').join('') + '</select>' +
     '<button class="sec" id="uBRgo">ใช้กับที่เลือก</button><button class="sec" id="uBOn">เปิดบัญชี</button><button class="sec" id="uBOff">ปิดบัญชี</button>' +
@@ -828,6 +838,21 @@ async function showUsers() {
     else if (x.u) await stampUsers([x.u.username]);
   };
   const shortName = s => s ? (String(s.first || '').trim() + (s.last ? ' ' + String(s.last).trim().charAt(0) + '.' : '')).trim() : '';
+  const cap = v => String(v || '').trim().toLowerCase().replace(/(^|[\s-])(\S)/g, (a, b, c) => b + c.toUpperCase());
+  const ROLE_LB = { admin: 'ผู้ดูแลระบบ', purchasing: 'Purchasing', inflight: 'IFS', crew: 'Crew', accounting: 'Accounting', bac: 'BAC', guest: '' };
+  const dispName = (fi, la, role) => { const b = cap(fi) + (String(la || '').trim() ? ' ' + String(la).trim().charAt(0).toUpperCase() + '.' : ''); return ROLE_LB[role] ? b + ' (' + ROLE_LB[role] + ')' : b; };
+  const mkUser = (fi, la) => { const f = String(fi || '').toLowerCase().replace(/[^a-z]/g, ''), l = String(la || '').toLowerCase().replace(/[^a-z]/g, '').slice(0, 3); return f ? (l ? f + '.' + l : f) : ''; };
+  const makeAccs = async list => {
+    const out = { created: [], skipped: [] };
+    for (let i = 0; i < list.length; i += 25) {
+      const r = await run('addStaffAccounts', list.slice(i, i + 25));
+      out.created = out.created.concat(r.created); out.skipped = out.skipped.concat(r.skipped);
+    }
+    if (out.created.length) { try { await call_('ioStampMany', [TOKEN, 'staffrow', out.created.map(c => c.no)]); await touchStamp('users'); } catch (e) { } }
+    return out;
+  };
+  const accMsg = r => 'สร้างบัญชี ' + r.created.length + ' คน' + (r.created.length === 1 ? ' · Username: ' + r.created[0].username + ' · รหัสผ่าน: ' + r.created[0].password : '') +
+    (r.skipped.length ? ' · ข้าม ' + r.skipped.length + ': ' + r.skipped.slice(0, 3).join(', ') + (r.skipped.length > 3 ? ' ...' : '') : '');
 
   const editor = (tr, x, mode, presetRole) => {
     each('#uBody tr.edit', e => e.remove());
@@ -841,10 +866,13 @@ async function showUsers() {
     if (u) {
       inner += '<div class="grid">' + f('aU', 'Username', u.username, ' readonly') + f('aN', 'ชื่อที่แสดง', u.name) +
         '<label>กลุ่ม<select class="aR">' + roleOpts(u.role, false) + '</select></label>' + f('aP', 'รหัสผ่านใหม่ (เว้นว่าง = ไม่เปลี่ยน)', '', ' type="text" autocomplete="off"') + '</div>';
+    } else if (mode === 'acc') {
+      inner += '<div class="grid aBox">' + f('aU', 'Username', '') + f('aN', 'ชื่อที่แสดง', '') +
+        '<label>กลุ่ม<select class="aR">' + roleOpts(presetRole || 'guest', false) + '</select></label>' + f('aP', 'รหัสผ่านเริ่มต้น (อย่างน้อย 6 ตัว)', '', ' type="text" autocomplete="off"') + '</div>';
     } else {
-      inner += (mode === 'acc' ? '' : '<label class="ck"><input type="checkbox" class="mk"' + (presetRole ? ' checked' : '') + '> สร้างบัญชีผู้ใช้ให้คนนี้</label>') +
-        '<div class="grid aBox">' + f('aU', 'Username', x.no ? x.no.toLowerCase() : '') + f('aN', 'ชื่อที่แสดง', shortName(x.s)) +
-        '<label>กลุ่ม<select class="aR">' + roleOpts(presetRole || 'crew', false) + '</select></label>' + f('aP', 'รหัสผ่านเริ่มต้น (อย่างน้อย 6 ตัว)', '', ' type="text" autocomplete="off"') + '</div>';
+      inner += '<div class="hint">ระบบจะสร้างบัญชีให้อัตโนมัติเมื่อกดบันทึก (ถ้า Username ซ้ำจะเติมเลขต่อท้าย เช่น warunyoo.bor2)</div>' +
+        '<div class="grid"><label>Username<input class="pU" readonly></label><label>รหัสผ่านเริ่มต้น<input class="pP" readonly></label><label>ชื่อที่แสดง<input class="pN" readonly></label>' +
+        '<label>กลุ่ม<select class="aR">' + roleOpts(presetRole || 'guest', false) + '</select></label></div>';
     }
     inner += '<div><button class="xS">บันทึก</button><button class="sec xC">ยกเลิก</button></div></div>';
     const ed = document.createElement('tr');
@@ -852,10 +880,14 @@ async function showUsers() {
     ed.innerHTML = '<td colspan="9">' + inner + '</td>';
     if (tr) { tr.after(ed); tr.style.opacity = '.5'; } else $('uBody').prepend(ed);
     const q = c => ed.querySelector('.' + c);
-    const syncBox = () => { if (q('mk')) each('#uBody tr.edit .aBox input, #uBody tr.edit .aBox select', el => { el.disabled = !q('mk').checked; }); };
-    if (q('mk')) { q('mk').onchange = syncBox; syncBox(); }
-    if (staffPart && !u && q('xNo')) q('xNo').oninput = () => { if (!q('aU').dataset.t) q('aU').value = q('xNo').value.trim().toLowerCase().replace(/^(\d)/, 'nok$1'); };
-    if (q('aU')) q('aU').oninput = () => { q('aU').dataset.t = '1'; };
+    const preview = () => {
+      if (!q('pU')) return;
+      const no = q('xNo').value.trim().toUpperCase().replace(/\s+/g, '').replace(/^(\d)/, 'NOK$1');
+      q('pU').value = mkUser(q('xF').value, q('xL').value) || no.toLowerCase();
+      q('pP').value = no;
+      q('pN').value = dispName(q('xF').value, q('xL').value, q('aR').value);
+    };
+    if (q('pU')) { ['xNo', 'xF', 'xL'].forEach(c => { q(c).oninput = preview; }); q('aR').onchange = preview; preview(); }
     (staffPart ? q('xNo') : q('aU')).focus();
     q('xC').onclick = () => { ed.remove(); if (tr) tr.style.opacity = ''; };
     q('xS').onclick = async () => {
@@ -874,10 +906,16 @@ async function showUsers() {
           if (nn && nn !== u.name) { await run('ioUserEdit', u.username, nn); accChanged = true; }
           if (rr !== u.role) { await run('setRole', u.username, rr); accChanged = true; }
           if (pw) { await run('resetPassword', u.username, pw); accChanged = true; }
-        } else if (mode === 'acc' || (q('mk') && q('mk').checked)) {
+        } else if (mode === 'acc') {
           un = q('aU').value.trim().toLowerCase();
           await run('addUser', { username: un, name: q('aN').value.trim() || un, role: q('aR').value, password: q('aP').value });
           accChanged = true;
+        } else {
+          const r = await makeAccs([{ no: newNo, role: q('aR').value }]);
+          if (accChanged && !rowStamped) await stampRow({ s: true, no: newNo });
+          toast('บันทึกแล้ว · ' + accMsg(r), !r.skipped.length);
+          showUsers();
+          return;
         }
         if (accChanged && !rowStamped) await stampRow(staffPart ? { s: true, no: newNo } : { u: { username: un } });
         toast('บันทึกแล้ว', true);
@@ -912,6 +950,12 @@ async function showUsers() {
     });
   });
   $('bAddS').onclick = () => editor(null, { no: '', s: null, u: null }, 'staff');
+  if ($('bMkAll')) twoClick($('bMkAll'), async () => {
+    $('bMkAll').disabled = true;
+    try { const r = await makeAccs(noAcc.map(x => ({ no: x.no, role: 'guest' }))); toast(accMsg(r), !r.skipped.length); }
+    catch (e) { toast(/addStaffAccounts/.test(e.message) ? 'ต้องอัปเดตไฟล์ Code.gs ก่อน' : e.message); }
+    showUsers();
+  }, 'สร้างบัญชีให้พนักงานที่ยังไม่มีบัญชี (' + noAcc.length + ' คน)');
   $('bAddU').onclick = () => editor(null, { no: '', s: null, u: null }, 'acc');
 
   $('bImpX').onclick = () => $('fImp').click();
@@ -934,9 +978,11 @@ async function showUsers() {
     const have = {};
     staff.forEach(s => { have[String(s.no).toUpperCase()] = 1; });
     const nNew = recs.filter(r => !have[r.row[0]]).length;
-    const withAcc = recs.filter(r => r.role);
+    const linked = {};
+    rows.forEach(x => { if (x.u) linked[x.no] = x.u; });
+    const withAcc = recs.filter(r => !linked[r.row[0]] || (r.role && linked[r.row[0]].role !== r.role));
     $('impBox').innerHTML = '<div class="imp"><b>' + esc(file.name) + '</b> · พบ ' + recs.length + ' รายชื่อ (เพิ่มใหม่ ' + nNew + ' · อัปเดต ' + (recs.length - nNew) + ')' +
-      (withAcc.length ? ' · กำหนดกลุ่ม/สร้างบัญชี ' + withAcc.length + ' คน' : '') +
+      (withAcc.length ? ' · สร้างบัญชี/เปลี่ยนกลุ่ม ' + withAcc.length + ' คน' : '') +
       '<table class="ut" style="margin:6px 0"><tbody>' + recs.slice(0, 5).map(r => '<tr>' + r.row.map(v => '<td>' + esc(v) + '</td>').join('') + '<td>' + esc(r.role || '-') + '</td></tr>').join('') + '</tbody></table>' +
       (recs.length > 5 ? '<div class="hint">... และอีก ' + (recs.length - 5) + ' รายชื่อ</div>' : '') +
       '<button id="bImpOk">ยืนยันนำเข้า ' + recs.length + ' รายชื่อ</button><button class="sec" id="bImpNo">ยกเลิก</button></div>';
@@ -947,10 +993,16 @@ async function showUsers() {
         const r = await run('importStaff', recs.map(x => x.row.join('\t')).join('\n'));
         try { await call_('ioStampMany', [TOKEN, 'staffrow', recs.map(x => x.row[0])]); await touchStamp('staff'); } catch (e) { }
         let msg = 'นำเข้าแล้ว: เพิ่ม ' + r.added + ' อัปเดต ' + r.updated;
-        if (withAcc.length) {
-          const b = await run('ioBulkUsers', withAcc.map(x => ({ username: x.row[0].toLowerCase(), name: (x.row[1] + (x.row[2] ? ' ' + x.row[2].charAt(0) + '.' : '')).trim(), role: x.role, password: x.pw })));
-          msg += ' · สร้างบัญชี ' + b.created + ' เปลี่ยนกลุ่ม ' + b.updated + (b.skipped.length ? ' · ข้าม ' + b.skipped.length + ': ' + b.skipped.slice(0, 3).join(', ') : '');
+        const fresh = withAcc.filter(x => !linked[x.row[0]]);
+        if (fresh.length) {
+          const b = await makeAccs(fresh.map(x => ({ no: x.row[0], role: x.role || 'guest', pw: x.pw })));
+          msg += ' · ' + accMsg(b);
         }
+        const moves = {};
+        withAcc.filter(x => linked[x.row[0]]).forEach(x => { (moves[x.role] = moves[x.role] || []).push({ no: x.row[0], username: linked[x.row[0]].username }); });
+        let nMove = 0;
+        for (const role of Object.keys(moves)) { const b = await run('ioBulkAction', 'role', moves[role], role); nMove += b.done; }
+        if (nMove) msg += ' · เปลี่ยนกลุ่ม ' + nMove + ' คน';
         toast(msg, true);
         showUsers();
       } catch (e) { toast(/ioBulkUsers/.test(e.message) ? 'ต้องอัปเดตไฟล์ Inflight_Addon ก่อน' : e.message); if ($('bImpOk')) $('bImpOk').disabled = false; }

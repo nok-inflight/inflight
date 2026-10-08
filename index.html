@@ -327,18 +327,21 @@ function busy(on) {
   else { busyN = 0; $('busy').style.display = 'none'; }
 }
 const API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
+const IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
 function call_(fn, args) {
   const quiet = QUIET.indexOf(fn) >= 0;
   if (!quiet) busy(true);
-  return fetch(API_URL, {
+  const p = IN_GAS ? new Promise((ok, ko) => {
+    google.script.run.withSuccessHandler(ok).withFailureHandler(ko)[fn].apply(null, args);
+  }) : fetch(API_URL, {
     method: 'POST',
     headers: { 'Content-Type': 'text/plain;charset=utf-8' },
     body: JSON.stringify({ fn: fn, args: args })
   })
     .catch(() => { throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต'); })
     .then(r => r.json())
-    .then(d => { if (!d.ok) throw new Error(d.error); return d.result; })
-    .finally(() => { if (!quiet) busy(false); });
+    .then(d => { if (!d.ok) throw new Error(d.error); return d.result; });
+  return p.finally(() => { if (!quiet) busy(false); });
 }
 function run(fn) {
   return call_(fn, [TOKEN].concat(Array.prototype.slice.call(arguments, 1))).catch(e => {

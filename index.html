@@ -568,6 +568,31 @@ function busy(on) {
 }
 const API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
 const IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
+// เรียกเซิร์ฟเวอร์จากหน้า GitHub: ตัดเวลาที่ 90 วินาที ไม่ให้หมุนค้างไม่รู้จบ และลองใหม่ให้ 1 ครั้งถ้าเน็ตสะดุด
+const READ_ONLY = /^(me|ping|getOnline|getStaff|getEntry|listEntries|listUsers|listStaff|commissionReport|ioGetExtra|ioMonth|ioDay|ioCrewStock|ioBacDate|ioBacLastTemplate|ioSkedGet|ioCatalogGet|ioAircraftList|ioFileList|ioFileGet|ioStamps|ioStampAll|ioChatGet|ioChatRooms|ioNotify|ioSettingsGet|ioAsk)/;
+function fetchApi_(fn, args, again) {
+  const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
+  const timer = ctl ? setTimeout(() => ctl.abort(), 90000) : 0;
+  return fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+    body: JSON.stringify({ fn: fn, args: args }),
+    signal: ctl ? ctl.signal : undefined
+  })
+    .catch(e => {
+      if (e && e.name === 'AbortError') throw new Error('เซิร์ฟเวอร์ตอบช้าเกินไป กรุณาลองใหม่อีกครั้ง');
+      if (!again && READ_ONLY.test(fn)) return new Promise(r => setTimeout(r, 1500)).then(() => fetchApi_(fn, args, true)).then(x => ({ __done: x }));
+      throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต');
+    })
+    .then(r => {
+      if (r && r.__done !== undefined) return { ok: true, result: r.__done };
+      return r.text().then(t => {
+        try { return JSON.parse(t); } catch (e) { throw new Error('เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (ตรวจว่า Deploy เป็น "Anyone" และใช้ลิงก์ล่าสุด)'); }
+      });
+    })
+    .then(d => { if (!d.ok) throw new Error(d.error); return d.result; })
+    .finally(() => clearTimeout(timer));
+}
 function call_(fn, args) {
   const quiet = QUIET.indexOf(fn) >= 0;
   if (!quiet) busy(true);
@@ -575,14 +600,7 @@ function call_(fn, args) {
     const r = google.script.run.withSuccessHandler(ok).withFailureHandler(ko);
     if (typeof r[fn] !== 'function') { ko(new Error('ไม่พบฟังก์ชัน ' + fn + ' ใน Apps Script · ตรวจว่าวางไฟล์ .gs ครบและกดบันทึกแล้ว จากนั้นรีเฟรชหน้าเว็บ (Ctrl+Shift+R)')); return; }
     r[fn].apply(null, args);
-  }) : fetch(API_URL, {
-    method: 'POST',
-    headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-    body: JSON.stringify({ fn: fn, args: args })
-  })
-    .catch(() => { throw new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต'); })
-    .then(r => r.json())
-    .then(d => { if (!d.ok) throw new Error(d.error); return d.result; });
+  }) : fetchApi_(fn, args);
   return p.finally(() => { if (!quiet) busy(false); });
 }
 function run(fn) {
@@ -734,7 +752,8 @@ function notify(n) {
 }
 async function pollNotes() {
   try {
-    const r = await call_('ioNotify', [TOKEN, NOTE_SINCE]);
+    const r = await call_('ioNotify', [TOKEN, NOTE_SINCE, !!SET.chat]);
+    if (r.online) renderOnline(r.online);
     const first = !NOTE_SINCE;
     NOTE_SINCE = r.now;
     if (first) return;
@@ -779,18 +798,20 @@ function chatTime(at) {
 }
 
 function refreshOnline() {
-  run('getOnline').then(l => {
-    const label = DEPT_LABEL[CHAT_ROOM] || CHAT_ROOM;
-    const mine = l.filter(u => u.dept === label);
-    $('liveN').textContent = mine.length;
-    Array.prototype.forEach.call($('liveCh').options, o => {
-      const lb = o.dataset.name || '', n = l.filter(u => u.dept === lb).length;
-      o.textContent = 'ห้อง ' + lb + ' · ออนไลน์ ' + n;
-    });
-    $('liveOn').innerHTML = mine.length
-      ? mine.map(u => '● ' + esc(u.name)).join('<br>')
-      : 'ยังไม่มีผู้ออนไลน์ในห้องนี้';
-  }).catch(() => {});
+  run('getOnline').then(renderOnline).catch(() => {});
+}
+function renderOnline(l) {
+  if (!Array.isArray(l) || !$('liveN')) return;
+  const label = DEPT_LABEL[CHAT_ROOM] || CHAT_ROOM;
+  const mine = l.filter(u => u.dept === label);
+  $('liveN').textContent = mine.length;
+  Array.prototype.forEach.call($('liveCh').options, o => {
+    const lb = o.dataset.name || '', n = l.filter(u => u.dept === lb).length;
+    o.textContent = 'ห้อง ' + lb + ' · ออนไลน์ ' + n;
+  });
+  $('liveOn').innerHTML = mine.length
+    ? mine.map(u => '● ' + esc(u.name)).join('<br>')
+    : 'ยังไม่มีผู้ออนไลน์ในห้องนี้';
 }
 
 function refreshChat() {
@@ -849,8 +870,7 @@ function stopLive() {
 
 document.addEventListener('visibilitychange', () => {
   if (document.hidden || !TOKEN || !ME) return;
-  run('ping').catch(() => {});
-  try { pollNotes(); if (SET.chat) refreshOnline(); if (liveOpen) refreshChat(); } catch (e) { }
+  try { pollNotes(); if (liveOpen) refreshChat(); } catch (e) { }
 });
 
 function startLive() {
@@ -859,8 +879,7 @@ function startLive() {
   document.body.classList.toggle('nochat', !SET.chat);
   run('ping').catch(() => {});
   initRooms();
-  tPing = setInterval(() => { if (!document.hidden) run('ping').catch(() => {}); }, 60000);
-  tOn = setInterval(() => { if (!document.hidden && SET.chat) refreshOnline(); }, 30000);
+  // ping และรายชื่อออนไลน์ ส่งไปพร้อมกับการเช็กแจ้งเตือนทุก 30 วินาทีแล้ว (ลดจำนวนครั้งที่เรียกเซิร์ฟเวอร์)
   tChat = setInterval(() => { if (liveOpen && !document.hidden) refreshChat(); }, 6000);
 }
 

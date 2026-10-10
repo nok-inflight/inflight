@@ -1,9 +1,11 @@
 {
+  "id": "./",
   "name": "Inflight Operations",
   "short_name": "Inflight Ops",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",
+  "launch_handler": { "client_mode": ["focus-existing", "auto"] },
   "background_color": "#f4f1e8",
   "theme_color": "#8a6d2f",
   "icons": [

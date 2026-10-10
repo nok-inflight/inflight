@@ -455,6 +455,10 @@
   #foot b { color: #8a6d2f; }
   html { color-scheme: light only; }
   html[data-theme="dark"] { color-scheme: dark; }
+  #oqBox { display: none; position: fixed; top: 44px; right: 12px; width: 380px; max-width: calc(100% - 24px); max-height: 70vh; overflow: auto; background: #fff; color: #222; border-radius: 8px; padding: 10px; box-shadow: 0 4px 14px rgba(0,0,0,.3); z-index: 41; }
+  html[data-theme="dark"] #oqBox { background: #221f18; color: #ece6d6; }
+  .offb { background: #c0392b; color: #fff; border-radius: 10px; padding: 2px 8px; font-size: 12px; margin-left: 6px; }
+  #bOq b { font-size: 12px; margin-left: 2px; }
   .hbtn { background: transparent; border: 0; color: #fff; font-size: 17px; padding: 2px 6px; margin: 0 0 0 4px; position: relative; cursor: pointer; }
   #bellN { position: absolute; top: -3px; right: -4px; background: #c0392b; color: #fff; font-size: 10px; border-radius: 9px; padding: 1px 5px; display: none; }
   #notif { position: fixed; top: 50px; right: 12px; width: 320px; max-width: calc(100% - 24px); z-index: 40; display: flex; flex-direction: column; gap: 8px; pointer-events: none; }
@@ -608,7 +612,7 @@
 <body>
 <header>
   <span>INFLIGHT OPERATIONS</span>
-  <span id="who" style="display:none"><span id="whoName"></span><button class="hbtn" id="bBell" title="การแจ้งเตือน">🔔<b id="bellN"></b></button><button class="hbtn" id="bSet" title="ตั้งค่า">⚙️</button><button class="sec" id="bOut">ออกจากระบบ</button></span>
+  <span id="who" style="display:none"><span id="whoName"></span><b id="offB" class="offb" style="display:none">ออฟไลน์</b><button class="hbtn" id="bOq" style="display:none"></button><button class="hbtn" id="bBell" title="การแจ้งเตือน">🔔<b id="bellN"></b></button><button class="hbtn" id="bSet" title="ตั้งค่า">⚙️</button><button class="sec" id="bOut">ออกจากระบบ</button></span>
 </header>
 <div id="toast"></div>
 <div id="notif"></div>
@@ -715,6 +719,7 @@ const IN_GAS = typeof google !== 'undefined' && google.script && google.script.r
 // เรียกเซิร์ฟเวอร์จากหน้า GitHub: ตัดเวลาที่ 90 วินาที ไม่ให้หมุนค้างไม่รู้จบ และลองใหม่ให้ 1 ครั้งถ้าเน็ตสะดุด
 const READ_ONLY = /^(me|ping|getOnline|getStaff|getEntry|listEntries|listUsers|listStaff|commissionReport|ioGetExtra|ioMonth|ioDay|ioCrewStock|ioBacDate|ioBacLastTemplate|ioSkedGet|ioCatalogGet|ioAircraftList|ioFileList|ioFileGet|ioStamps|ioStampAll|ioChatGet|ioChatRooms|ioNotify|ioSettingsGet|ioAsk|ioBoot|ioMealGet|ioMealView|ioMealMonth|ioHmGet|ioFormsGet|ioUploadList|ioKeyedList)/;
 function fetchApi_(fn, args, again) {
+  if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.reject(new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต'));
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
   const timer = ctl ? setTimeout(() => ctl.abort(), 90000) : 0;
   return fetch(API_URL, {
@@ -1068,7 +1073,7 @@ function load_(k) { try { return sessionStorage.getItem(k); } catch (e) { return
 function showLogin() {
   stopLive();
   if (typeof asShow === 'function') asShow(false);
-  TOKEN = ''; ME = null; store_('tk', null);
+  TOKEN = ''; ME = null; store_('tk', null); lsSet('io_off', null);
   $('shell').style.display = 'none';
   $('who').style.display = 'none';
   $('login').style.display = 'block';
@@ -1090,6 +1095,8 @@ async function doLogin() {
 
 function enterApp(d) {
   TOKEN = d.token; ME = d; store_('tk', TOKEN);
+  if (ON_GH && !d.offline) lsSet('io_off', { tk: d.token, me: d });
+  setTimeout(() => { oqBadge(); if (!d.offline) oqFlush(); }, 2500);
   let cv = ''; try { if (localStorage.getItem('io_cat')) cv = localStorage.getItem('io_catv') || ''; } catch (e) { }
   BOOT = run('ioBoot', cv).catch(() => null); BOOT_CAT = BOOT; STAFF_AT = 0;
   CAT_DONE = false; CAT_READY = loadCatalog();
@@ -1548,7 +1555,12 @@ async function showSales() {
     RATE = { fb: d.rateFB, mer: d.rateMER };
     CHARTER = d.charter || [];
     STAFF_AT = Date.now();
-  } catch (e) { toast(e.message); return; }
+    if (ON_GH) lsSet('io_staff', { map: d.map, rateFB: d.rateFB, rateMER: d.rateMER, charter: d.charter || [] });
+  } catch (e) {
+    const c = isNetErr(e) ? lsGet('io_staff', null) : null;
+    if (!c) { toast(e.message); return; }
+    STAFF = c.map; RATE = { fb: c.rateFB, mer: c.rateMER }; CHARTER = c.charter || [];
+  }
   showEntries();
 }
 
@@ -1600,7 +1612,12 @@ async function loadEntries() {
         each('#listBox [data-rs]', td => { const x = st[td.dataset.rs]; td.textContent = x && x.reg ? x.reg + ' · SET ' + x.set : '-'; });
       } catch (x) {  }
     }
-  } catch (e) { toast(e.message); }
+  } catch (e) {
+    if (!isNetErr(e)) { toast(e.message); return; }
+    const q = oqList().filter(j => j.d.Date === day);
+    if ($('listBox')) $('listBox').innerHTML = '<div class="imp warnbox"><b>ออฟไลน์</b> · ดูรายการจากระบบไม่ได้ตอนนี้ แต่กด "+ คีย์ใหม่" ได้ ใบขายจะเก็บไว้ในเครื่องแล้วส่งให้เมื่อมีเน็ต</div>' +
+      (q.length ? '<table><thead><tr><th>เที่ยวบิน (รอส่ง)</th><th class="r">Grand Total</th></tr></thead><tbody>' + q.map(j => '<tr><td>' + esc(j.d.Flight) + '</td><td class="r">' + money((Number(j.d.HotMeal) || 0) + (Number(j.d.SnackBev) || 0) + (Number(j.d.Merch) || 0)) + '</td></tr>').join('') + '</tbody></table>' : '');
+  }
 }
 
 function numField(id, label, v) {
@@ -1847,11 +1864,26 @@ async function saveEntry() {
   const d = { EntryId: $('EntryId').value, Date: $('Date').value, Flight: $('Flight').value,
               HotMeal: $('HotMeal').value, SnackBev: $('SnackBev').value, Merch: $('Merch').value, Cash: $('Cash').value, Crew: isCh ? [] : crew };
   $('bSave').disabled = true;
+  const itemsNow = Object.keys(SOLD).filter(k => SOLD[k] > 0).map(k => ({ item: SALECAT[k].name, qty: SOLD[k], price: SALECAT[k].price }));
+  const soldNow = { Date: d.Date, Flight: d.Flight, Items: itemsNow, CharterCrew: isCh ? crew.map(normId) : [],
+    Info: { Remarks: $('fRemarks').value, Defect: $('fDefect').value, Checker: $('fChecker').value, PreparedBy: $('fPrepared').value, SealGreen: $('fSealG').value, SealBlue: $('fSealB').value, Aircraft: $('eReg').value, SetNo: $('eSet').dataset.v || '' } };
+  // ออฟไลน์: เก็บไว้ในเครื่องก่อน แล้วส่งให้เองเมื่อมีเน็ต
+  const queue = (id1) => {
+    const qid = $('EntryId').dataset.q || ('Q' + Date.now());
+    const job = { qid: qid, at: new Date().toISOString(), d: Object.assign({}, d, id1 ? { EntryId: id1 } : {}), done1: !!id1, sold: soldNow };
+    if (!oqAdd(job)) return;
+    $('EntryId').dataset.q = qid;
+    if (id1) $('EntryId').value = id1;
+    toast('ยังไม่มีอินเทอร์เน็ต · เก็บใบขาย ' + d.Flight + ' ไว้ในเครื่องแล้ว จะส่งให้อัตโนมัติเมื่อมีเน็ต (ดูได้ที่ปุ่ม ⏳ มุมขวาบน)', true);
+  };
+  if (!navigator.onLine) { queue(''); if ($('bSave')) $('bSave').disabled = false; return; }
   try {
-    const r = await run('saveEntry', d);
+    let r;
+    try { r = await run('saveEntry', d); }
+    catch (e0) { if (isNetErr(e0)) { queue(''); if ($('bSave')) $('bSave').disabled = false; return; } throw e0; }
     $('EntryId').value = r.id;
-    const items = Object.keys(SOLD).filter(k => SOLD[k] > 0)
-      .map(k => ({ item: SALECAT[k].name, qty: SOLD[k], price: SALECAT[k].price }));
+    if ($('EntryId').dataset.q) { oqPut(oqList().filter(x => x.qid !== $('EntryId').dataset.q)); delete $('EntryId').dataset.q; }
+    const items = itemsNow;
     let msg = 'บันทึกแล้ว', ok = true;
 
     const chCrew = isCh ? crew.map(normId) : [];
@@ -1863,7 +1895,10 @@ async function saveEntry() {
         HAD_SOLD = items.length > 0; HAD_CH = chCrew.some(v => v);
         if ($('eStamp')) $('eStamp').textContent = stampText(st && st.at ? st : null);
       }
-      catch (x) { msg = 'บันทึกใบขายแล้ว แต่บันทึกรายการสินค้า/DEFECT/SEAL ไม่ได้ (ตรวจว่าอัปเดตไฟล์ Inflight_Addon แล้ว)'; ok = false; }
+      catch (x) {
+        if (isNetErr(x)) { queue(r.id); if ($('bSave')) $('bSave').disabled = false; return; }
+        msg = 'บันทึกใบขายแล้ว แต่บันทึกรายการสินค้า/DEFECT/SEAL ไม่ได้ (ตรวจว่าอัปเดตไฟล์ Inflight_Addon แล้ว)'; ok = false;
+      }
     }
     toast(msg, ok);
     dpDirty('crew');
@@ -2568,8 +2603,8 @@ async function loadCatalog() {
     if (b && b.cat) { l = b.cat; try { localStorage.setItem('io_cat', JSON.stringify(l)); localStorage.setItem('io_catv', b.catv); } catch (e) { try { localStorage.removeItem('io_cat'); } catch (x) { } } }
     else if (b) { try { l = JSON.parse(localStorage.getItem('io_cat') || 'null'); } catch (e) { l = null; } }
     if (!l) {
-      l = await call_('ioCatalogGet', [TOKEN]);
-      try { localStorage.removeItem('io_catv'); } catch (e) { }
+      try { l = await call_('ioCatalogGet', [TOKEN]); try { localStorage.removeItem('io_catv'); } catch (e) { } }
+      catch (e) { l = lsGet('io_cat', null); if (!l) throw e; }
     }
     if (l && l.length) {
       CAT_FULL = l;
@@ -3876,6 +3911,99 @@ function fmCfgEdit() {
   };
 }
 // FM_END
+// OFF_BEGIN ===== โหมดออฟไลน์ (หน้า GitHub): เก็บใบขายลูกเรือไว้ในเครื่อง แล้วส่งเองเมื่อมีเน็ต =====
+const ON_GH = !IN_GAS && /^https?:$/.test(location.protocol);
+function isNetErr(e) { return !navigator.onLine || /เชื่อมต่อเซิร์ฟเวอร์ไม่ได้|ตอบช้าเกินไป|NetworkError|Failed to fetch|Load failed|network/i.test(String(e && e.message || e || '')); }
+function lsGet(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+function lsSet(k, v) { try { if (v == null) localStorage.removeItem(k); else localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } }
+const oqKey = () => 'io_outbox_' + (ME ? String(ME.username || '').toLowerCase() : '');
+function oqList() { return ME ? lsGet(oqKey(), []) : []; }
+function oqPut(q) { lsSet(oqKey(), q.length ? q : null); oqBadge(); }
+function oqAdd(job) {
+  const q = oqList().filter(x => x.qid !== job.qid);
+  q.push(job);
+  if (!lsSet(oqKey(), q)) { toast('พื้นที่ในเครื่องเต็ม เก็บใบขายไว้ไม่ได้'); return false; }
+  oqBadge();
+  return true;
+}
+function oqBadge() {
+  const n = oqList().length, b = $('bOq');
+  if (b) { b.style.display = n ? '' : 'none'; b.innerHTML = '⏳<b>' + n + '</b>'; b.title = 'ใบขายรอส่ง ' + n + ' ใบ'; }
+  const o = $('offB'); if (o) o.style.display = navigator.onLine ? 'none' : '';
+}
+let OQ_BUSY = false;
+async function oqSend(job) {
+  let id = job.d.EntryId;
+  if (!job.done1) {
+    try { id = (await call_('saveEntry', [TOKEN, job.d])).id; }
+    catch (e) {
+      // ส่งไปแล้วแต่ไม่ได้รับคำตอบ (เน็ตหลุด) → หาใบเดิมแทนการสร้างซ้ำ
+      if (job.d.EntryId || !/มีเที่ยวบินนี้ในวันที่นี้แล้ว/.test(e.message)) throw e;
+      const l = await call_('listEntries', [TOKEN, job.d.Date, job.d.Date, job.d.Flight]);
+      const hit = l.filter(x => String(x.flight).toUpperCase() === String(job.d.Flight).trim().toUpperCase())[0];
+      if (!hit) throw e;
+      job.d.EntryId = hit.id;
+      id = (await call_('saveEntry', [TOKEN, job.d])).id;
+    }
+    job.d.EntryId = id; job.done1 = true;
+    const q = oqList(); q.forEach(x => { if (x.qid === job.qid) { x.d.EntryId = id; x.done1 = true; } }); lsSet(oqKey(), q);
+  }
+  await call_('ioSaveSold', [TOKEN, Object.assign({}, job.sold, { EntryId: id })]);
+}
+async function oqFlush(manual) {
+  if (OQ_BUSY || !TOKEN || !ME) return;
+  let q = oqList();
+  if (!q.length) return;
+  if (!navigator.onLine) { if (manual) toast('ยังไม่มีอินเทอร์เน็ต'); return; }
+  OQ_BUSY = true;
+  const rel = busyHold('กำลังส่งใบขายที่ค้าง...');
+  let ok = 0, fail = 0, stop = '';
+  try {
+    for (let i = 0; i < q.length; i++) {
+      const job = q[i];
+      busyMsg('กำลังส่งใบขายที่ค้าง ' + (i + 1) + '/' + q.length + ' · ' + job.d.Flight + ' ' + job.d.Date);
+      try {
+        await oqSend(job);
+        ok++;
+        oqPut(oqList().filter(x => x.qid !== job.qid));
+      } catch (e) {
+        if (isNetErr(e)) { stop = 'เน็ตหลุดระหว่างส่ง จะลองใหม่อัตโนมัติ'; break; }
+        if (/หมดเวลา|เข้าสู่ระบบ/.test(e.message)) { stop = 'ต้องเข้าสู่ระบบใหม่ก่อน ใบขายยังเก็บอยู่ในเครื่อง'; break; }
+        fail++;
+        const l = oqList(); l.forEach(x => { if (x.qid === job.qid) x.err = e.message; }); oqPut(l);
+      }
+    }
+  } finally { rel(); OQ_BUSY = false; }
+  if (ok) { dpDirty('crew'); toast('ส่งใบขายที่ค้างแล้ว ' + ok + ' ใบ' + (fail ? ' · ส่งไม่ได้ ' + fail + ' ใบ (กด ⏳ เพื่อดู)' : ''), !fail); }
+  else if (fail) toast('ส่งใบขายไม่ได้ ' + fail + ' ใบ · กด ⏳ เพื่อดูสาเหตุ');
+  if (stop && (manual || ok)) toast(stop);
+  if (ok && $('stBox') && typeof refreshStatus === 'function') { try { refreshStatus(); } catch (e) { } }
+}
+function oqShow() {
+  const q = oqList();
+  let box = $('oqBox');
+  if (!box) { box = document.createElement('div'); box.id = 'oqBox'; document.body.appendChild(box); }
+  if (box.style.display === 'block') { box.style.display = 'none'; return; }
+  box.innerHTML = '<b>ใบขายที่รอส่ง (' + q.length + ')</b><div class="hint">เก็บไว้ในเครื่องนี้ ระบบจะส่งให้เองเมื่อมีอินเทอร์เน็ต · อย่าล้างข้อมูลเบราว์เซอร์ก่อนส่งเสร็จ</div>' +
+    (q.length ? '<table class="ut" style="margin:6px 0"><tbody>' + q.map(j => '<tr><td>' + esc(dmy(j.d.Date)) + '</td><td>' + esc(j.d.Flight) + '</td><td class="r">' + money((Number(j.d.HotMeal) || 0) + (Number(j.d.SnackBev) || 0) + (Number(j.d.Merch) || 0)) + '</td><td>' +
+      (j.err ? '<span class="warn">' + esc(j.err) + '</span>' : '<span class="hint">รอส่ง</span>') + '</td><td><button class="sec oqx" data-q="' + esc(j.qid) + '">ลบ</button></td></tr>').join('') + '</tbody></table>' : '<p class="hint">ไม่มี</p>') +
+    '<div class="dd" style="gap:6px"><button id="oqGo">ส่งตอนนี้</button><button class="sec" id="oqNo">ปิด</button></div>';
+  box.style.display = 'block';
+  $('oqNo').onclick = () => { box.style.display = 'none'; };
+  $('oqGo').onclick = () => { box.style.display = 'none'; oqFlush(true); };
+  each('#oqBox .oqx', b => twoClick(b, () => { oqPut(oqList().filter(x => x.qid !== b.dataset.q)); box.style.display = 'none'; oqShow(); }, 'ลบ'));
+}
+window.addEventListener('online', () => { oqBadge(); toast('กลับมาออนไลน์แล้ว', true); setTimeout(() => oqFlush(), 1500); });
+window.addEventListener('offline', () => { oqBadge(); toast('ออฟไลน์ · คีย์ใบขายต่อได้ ระบบจะเก็บไว้ในเครื่องแล้วส่งให้เมื่อมีเน็ต'); });
+setInterval(() => { if (navigator.onLine && !document.hidden && oqList().length) oqFlush(); }, 60000);
+// ติดตั้งเป็นแอป + เปิดหน้าเว็บได้ตอนไม่มีเน็ต (เฉพาะหน้า GitHub)
+if (ON_GH && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
+  try {
+    const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.json'; document.head.appendChild(l);
+    window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { }); });
+  } catch (e) { }
+}
+// OFF_END
 // DV_BEGIN ===== กรอบแสดงเอกสาร: ย่อให้พอดีจอ / ซูม / เต็มจอ (ใช้กับทุกหน้าที่แสดงเอกสารหรือตาราง) =====
 const DV = { mode: {}, full: '' };
 const DV_SEL = '.xscroll, .hmwrap, .fmwrap, iframe.dvfr';
@@ -5568,7 +5696,7 @@ function asShow(on) { if ($('asBtn')) $('asBtn').style.display = on ? '' : 'none
 
 let AIR = null;
 async function airList(force) {
-  if (!AIR || force) { try { AIR = await call_('ioAircraftList', [TOKEN]); } catch (e) { AIR = AIR || []; } }
+  if (!AIR || force) { try { AIR = await call_('ioAircraftList', [TOKEN]); if (ON_GH) lsSet('io_air', AIR); } catch (e) { AIR = AIR || lsGet('io_air', null) || []; } }
   return AIR;
 }
 function airOpts(sel, withAll) {
@@ -6468,6 +6596,7 @@ $('bReg').onclick = async () => {
 };
 $('bSet').onclick = showSettings;
 $('bBell').onclick = showBell;
+$('bOq').onclick = oqShow;
 $('lp').onkeydown = e => { if (e.key === 'Enter') doLogin(); };
 $('lu').onkeydown = e => { if (e.key === 'Enter') $('lp').focus(); };
 $('bOut').onclick = async () => {
@@ -6475,9 +6604,15 @@ $('bOut').onclick = async () => {
   showLogin();
 };
 (async function init() {
-  const tk = load_('tk');
+  const off = ON_GH ? lsGet('io_off', null) : null;
+  const tk = load_('tk') || (off && off.tk);
   if (tk) {
-    try { enterApp(await call_('me', [tk])); return; } catch (e) { store_('tk', null); }
+    try { enterApp(await call_('me', [tk])); return; }
+    catch (e) {
+      // ไม่มีเน็ต: เปิดด้วยข้อมูลที่จำไว้ในเครื่อง (คีย์ใบขายแล้วเก็บรอส่งได้)
+      if (isNetErr(e) && off && off.me && off.tk === tk) { enterApp(Object.assign({}, off.me, { token: tk, offline: true })); toast('ออฟไลน์ · ใช้ข้อมูลที่จำไว้ในเครื่อง ใบขายที่บันทึกจะส่งให้เมื่อมีเน็ต'); return; }
+      store_('tk', null);
+    }
   }
   showLogin();
 })();

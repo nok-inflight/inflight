@@ -684,6 +684,7 @@ const POS = ['CL', 'CC2', 'CC3', 'CC4', 'CC5', 'CC6'];
 let STAFF = {}, CHARTER = [], RATE = { fb: 0.1, mer: 0.1 }, TOKEN = '', ME = null, STAFF_AT = 0;
 // ข้อมูลเริ่มต้นตอนเข้าระบบ (ioBoot) เรียกครั้งเดียวแทนหลายครั้ง
 let BOOT = null, BOOT_CAT = null;
+const IO_NEED_VER = '2026-10-10';
 const $ = id => document.getElementById(id);
 const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -1110,11 +1111,15 @@ async function doLogin() {
 }
 
 function enterApp(d) {
+  if (d.role === 'owner') { d.role = 'admin'; d.owner = true; }
   TOKEN = d.token; ME = d; store_('tk', TOKEN);
+  // ตรวจว่าหน้าเว็บกับ Apps Script เป็นเวอร์ชันเดียวกัน (หน้า GitHub เรียก Apps Script ผ่าน API_URL)
+  const verWarn = () => { if (!$('verWarn')) { const w = document.createElement('div'); w.id = 'verWarn'; w.className = 'imp warnbox'; w.style.margin = '8px 16px'; w.innerHTML = '<b>หน้าเว็บนี้เชื่อมกับ Apps Script เวอร์ชันเก่า</b> · เมนูหรือข้อมูลบางส่วนอาจไม่ขึ้น · ' + (IN_GAS ? 'ให้ Deploy → Manage deployments → ✏️ → New version' : 'ตรวจว่า API_URL ในไฟล์ index.html ตรงกับลิงก์ Web app ใน Deploy → Manage deployments และกด New version แล้ว'); $('shell').parentNode.insertBefore(w, $('shell')); } };
   if (ON_GH && !d.offline) lsSet('io_off', { tk: d.token, me: d });
   setTimeout(() => { oqBadge(); if (!d.offline) oqFlush(); }, 2500);
   let cv = ''; try { if (localStorage.getItem('io_cat')) cv = localStorage.getItem('io_catv') || ''; } catch (e) { }
   BOOT = run('ioBoot', cv).catch(() => null); BOOT_CAT = BOOT; STAFF_AT = 0;
+  BOOT.then(b => { if (b && b.ver !== IO_NEED_VER && (ME.role === 'admin')) verWarn(); else if (!b && navigator.onLine && ME.role === 'admin') verWarn(); if ((!d.zones || d.zones.length < 2) && d.role !== 'guest') verWarn(); });
   CAT_DONE = false; CAT_READY = loadCatalog();
   asInit(); asShow(true);
   $('login').style.display = 'none';

@@ -683,7 +683,7 @@ const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&a
 const money = n => Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 const each = (sel, fn) => Array.prototype.forEach.call(document.querySelectorAll(sel), fn);
 
-const QUIET = ['ioSkedGet', 'ioDayMarks', 'ioAircraftList', 'ioNotify', 'ioSettingsGet', 'ioSettingsSave', 'ioStampAll', 'ioStampMany', 'ping', 'getOnline', 'getChat', 'sendChat', 'ioChatGet', 'ioChatSend', 'ioChatRooms', 'ioStamps', 'ioStamp', 'ioDayInfo', 'ioCrewStock', 'ioMonthLast'];
+const QUIET = ['ioSkedGet', 'ioCrewlist', 'ioDayMarks', 'ioAircraftList', 'ioNotify', 'ioSettingsGet', 'ioSettingsSave', 'ioStampAll', 'ioStampMany', 'ping', 'getOnline', 'getChat', 'sendChat', 'ioChatGet', 'ioChatSend', 'ioChatRooms', 'ioStamps', 'ioStamp', 'ioDayInfo', 'ioCrewStock', 'ioMonthLast'];
 let busyN = 0, busyT;
 function busy(on) {
   busyN += on ? 1 : -1;
@@ -717,7 +717,7 @@ function busyLabel(fn) {
 const API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
 const IN_GAS = typeof google !== 'undefined' && google.script && google.script.run;
 // เรียกเซิร์ฟเวอร์จากหน้า GitHub: ตัดเวลาที่ 90 วินาที ไม่ให้หมุนค้างไม่รู้จบ และลองใหม่ให้ 1 ครั้งถ้าเน็ตสะดุด
-const READ_ONLY = /^(me|ping|getOnline|getStaff|getEntry|listEntries|listUsers|listStaff|commissionReport|ioGetExtra|ioMonth|ioDay|ioCrewStock|ioBacDate|ioBacLastTemplate|ioSkedGet|ioCatalogGet|ioAircraftList|ioFileList|ioFileGet|ioStamps|ioStampAll|ioChatGet|ioChatRooms|ioNotify|ioSettingsGet|ioAsk|ioBoot|ioMealGet|ioMealView|ioMealMonth|ioHmGet|ioFormsGet|ioUploadList|ioKeyedList)/;
+const READ_ONLY = /^(me|ping|getOnline|getStaff|getEntry|listEntries|listUsers|listStaff|commissionReport|ioGetExtra|ioMonth|ioDay|ioCrewStock|ioBacDate|ioBacLastTemplate|ioSkedGet|ioCatalogGet|ioAircraftList|ioFileList|ioFileGet|ioStamps|ioStampAll|ioChatGet|ioChatRooms|ioNotify|ioSettingsGet|ioAsk|ioBoot|ioMealGet|ioMealView|ioMealMonth|ioHmGet|ioFormsGet|ioUploadList|ioKeyedList|ioCrewlist)/;
 function fetchApi_(fn, args, again) {
   if (typeof navigator !== 'undefined' && navigator.onLine === false) return Promise.reject(new Error('เชื่อมต่อเซิร์ฟเวอร์ไม่ได้ ตรวจสอบอินเทอร์เน็ต'));
   const ctl = typeof AbortController !== 'undefined' ? new AbortController() : null;
@@ -1547,6 +1547,8 @@ async function readSheetFile(file) {
 }
 
 async function showSales() {
+  // ตอนมีเน็ต: โหลดตารางบินวันนี้กับพรุ่งนี้เก็บไว้ในเครื่อง ใช้เติมทะเบียน/SET ให้ตอนออฟไลน์
+  if (ON_GH && navigator.onLine) [today(), fmAddDay(today(), 1)].forEach(d => { skedFor(d).catch(() => { }); crewlFor(d).catch(() => { }); });
   // รายชื่อพนักงานจำไว้ 10 นาที ไม่ต้องโหลดใหม่ทุกครั้งที่เปิดหน้า
   if (STAFF_AT && Date.now() - STAFF_AT < 600000) { showEntries(); return; }
   try {
@@ -1745,7 +1747,7 @@ async function openEntry(id) {
     '<label>เที่ยวบิน<input id="Flight" list="cfl" value="' + esc(e.Flight) + '"></label>' +
     '<label>ทะเบียนเครื่อง (A/C)<select id="eReg">' + airOpts((INFO && INFO.reg) || '') + '</select></label>' +
     '<label>Cart No.' + setBtns('eSet', (INFO && INFO.set) || '') + '</label>' +
-    '<div class="hint" id="skHint" style="grid-column:1/-1"></div>' +
+    '<div class="hint" id="skHint" style="grid-column:1/-1"></div><div class="hint" id="crHint" style="grid-column:1/-1"></div>' +
     '<datalist id="cfl">' + CHARTER.map(f => '<option value="' + esc(f) + '">').join('') + '</datalist></div>' +
     '<p style="margin:4px 0;font-size:12px;color:#666">กดที่รูปสินค้าเพื่อเพิ่มจำนวนที่ขาย (ปุ่ม − เพื่อลด) ยอด Snack &amp; Beverage กับ Merchandise จะคำนวณให้อัตโนมัติ ถ้าไม่กดรูปจะกรอกยอดเองได้เหมือนเดิม</p>' + '<div class="hint" id="stkNote" style="margin:2px 0 4px"></div>' + tilesHtml() +
     '</div><aside class="eside"><div class="ebox">' +
@@ -1789,6 +1791,7 @@ async function openEntry(id) {
   if (e.EntryId && Number(e.Cash) !== Number(e.GrandTotal)) $('Cash').dataset.t = '1';
   $('Cash').oninput = () => { $('Cash').dataset.t = '1'; };
   each('#HotMeal,#SnackBev,#Merch,#Flight,.cid', el => { el.oninput = recalc; });
+  each('.cid', el => { el.addEventListener('input', () => { delete el.dataset.auto; }); });
   each('.cid', el => { el.onblur = () => { el.value = normId(el.value); recalc(); }; });
   each('.tile', t => {
     t.onclick = () => { SOLD[t.dataset.k] = (SOLD[t.dataset.k] || 0) + 1; updateTiles(); };
@@ -2439,10 +2442,48 @@ let SKED_ERR = '', SKED_T = null;
 async function skedFor(date, force) {
   if (!date) return [];
   if (!force && SKED_CACHE[date] && SKED_CACHE[date].length) return SKED_CACHE[date];
-  try { SKED_CACHE[date] = await call_('ioSkedGet', [TOKEN, date]); }
-  catch (e) { SKED_ERR = e.message; return []; }
+  try {
+    SKED_CACHE[date] = await call_('ioSkedGet', [TOKEN, date]);
+    // จำตารางบินไว้ในเครื่อง (ใช้ตอนออฟไลน์) เก็บล่าสุด 7 วัน
+    if (ON_GH && SKED_CACHE[date] && SKED_CACHE[date].length) { const m = lsGet('io_sked', {}); m[date] = SKED_CACHE[date]; Object.keys(m).sort().slice(0, -7).forEach(k => delete m[k]); lsSet('io_sked', m); }
+  }
+  catch (e) {
+    const off = isNetErr(e) ? (lsGet('io_sked', {})[date] || null) : null;
+    if (off) { SKED_ERR = ''; SKED_CACHE[date] = off; return off; }
+    SKED_ERR = isNetErr(e) ? 'OFFLINE' : e.message; return [];
+  }
   SKED_ERR = '';
   return SKED_CACHE[date];
+}
+// รายชื่อลูกเรือตามกลุ่มเที่ยวบิน (จากไฟล์ Crewlist) จำไว้ในเครื่องสำหรับใช้ตอนออฟไลน์
+const CREWL_CACHE = {};
+async function crewlFor(date) {
+  if (!date) return [];
+  if (CREWL_CACHE[date]) return CREWL_CACHE[date];
+  try {
+    const l = await call_('ioCrewlist', [TOKEN, date]);
+    CREWL_CACHE[date] = l || [];
+    if (ON_GH && l && l.length) { const m = lsGet('io_crewl', {}); m[date] = l; Object.keys(m).sort().slice(0, -7).forEach(k => delete m[k]); lsSet('io_crewl', m); }
+  } catch (e) { return lsGet('io_crewl', {})[date] || []; }
+  return CREWL_CACHE[date];
+}
+async function crewFill(d, no) {
+  const el = $('crHint');
+  const l = await crewlFor(d);
+  if (!$('eReg') || $('Date').value !== d || skedNo($('Flight').value) !== no) return;
+  const g = l.filter(x => x.fl.indexOf(no) >= 0)[0];
+  if (!g) { if (el) el.textContent = l.length ? 'ไม่พบเที่ยวบิน DD' + no + ' ใน Crewlist ของวันที่ ' + d : ''; return; }
+  const sell = g.crew.filter(c => /^(CL|CC)/.test(c.pos) || !c.pos), other = g.crew.filter(c => sell.indexOf(c) < 0);
+  const ins = Array.prototype.slice.call(document.querySelectorAll('.cid'));
+  const typed = ins.some(x => x.value.trim() && !x.dataset.auto);
+  if (!typed) {
+    ins.forEach((x, i) => { const c = sell[i]; x.value = c ? normId(c.id) : ''; if (c) x.dataset.auto = '1'; else delete x.dataset.auto; });
+    recalc();
+  }
+  const reg = $('eReg');
+  if (g.reg && !reg.value) { if (!Array.prototype.some.call(reg.options, o => o.value === g.reg)) { const o = document.createElement('option'); o.textContent = g.reg; reg.appendChild(o); } reg.value = g.reg; updateStock(); }
+  if (el) el.textContent = (typed ? 'มีรหัสลูกเรือที่กรอกเองอยู่แล้ว ไม่ได้เติมให้ · ' : '') + 'Crewlist DD' + g.fl.join('/') + ' (' + g.reg + '): ' +
+    sell.map(c => c.pos + ' ' + (STAFF[normId(c.id)] || c.name)).join(', ') + (other.length ? ' · ไม่ได้ใส่: ' + other.map(c => c.pos + ' ' + (STAFF[normId(c.id)] || c.name)).join(', ') : '');
 }
 const skedNo = f => String(f || '').toUpperCase().replace(/^DD/, '').replace(/\D/g, '');
 
@@ -2569,12 +2610,13 @@ async function crewSkedMatch() {
   if (!$('eReg') || !$('Flight')) return;
   const d = $('Date').value, no = skedNo($('Flight').value);
   const hint = $('skHint');
-  if (!d || !no) { if (hint) hint.textContent = ''; return; }
+  if (!d || !no) { if (hint) hint.textContent = ''; if ($('crHint')) $('crHint').textContent = ''; return; }
+  crewFill(d, no);
   const rows = await skedFor(d);
   if (!$('eReg') || $('Date').value !== d || skedNo($('Flight').value) !== no) return;
   const r = rows.filter(x => x.flight === no)[0];
   if (!r) {
-    if (hint) hint.textContent = SKED_ERR ? 'อ่านตาราง SKED ไม่ได้: ' + SKED_ERR :
+    if (hint) hint.textContent = SKED_ERR === 'OFFLINE' ? 'ออฟไลน์ · ไม่มีตาราง SKED ของวันนี้ในเครื่อง เลือกเครื่องและ SET เอง (บันทึกได้ตามปกติ)' : SKED_ERR ? 'อ่านตาราง SKED ไม่ได้: ' + SKED_ERR :
       rows.length ? 'ไม่พบเที่ยวบิน DD' + no + ' ในตาราง SKED ของวันที่ ' + d + ' · เลือกเครื่องและ SET เอง' :
       'ยังไม่มีตาราง SKED ของวันที่ ' + d + ' (อัปโหลดได้ที่หน้า Inflight Supply → Final meal) · เลือกเครื่องและ SET เอง';
     return;
@@ -2753,17 +2795,35 @@ function fmParseCrew(rows, fname) {
   const cA = H.indexOf('REG'), cB = ix(/^FLT/), cC = ix(/^DEP/), cD = ix(/^(DEST|ARR)/), cE = ix(/^STD/), cF = ix(/^STA/);
   let date = /\bON\b/i.test(String(fname || '')) ? fmDateOf(String(fname || '').replace(/\.[a-z]+$/i, '').replace(/^.*?\bON\b/i, '')) : '';
   for (let i = 0; i < hr && !date; i++) (rows[i] || []).forEach(c => { if (!date && (c instanceof Date || typeof c === 'number' || /\d{4}-\d{2}-\d{2}/.test(String(c)))) date = fmDateOf(c); });
+  // ลูกเรือ (Cabin crew): ตำแหน่ง | ชื่อ | ID NO อยู่ถัดจากหัว "CABIN CREW"
+  const cK = ix(/^CABIN CREW/);
+  let cId = -1;
+  if (cK >= 0) for (let k = cK; k < H.length; k++) if (/^ID/.test(H[k])) { cId = k; break; }
+  const cabin = row => {
+    if (cId < 1) return null;
+    const id = String(fmClean(row[cId])).replace(/\D/g, ''), name = String(fmClean(row[cId - 1]));
+    if (!id) return null;
+    const pos = String(fmClean(row[cId - 2])).toUpperCase();
+    return { pos: /^[A-Z]{2,4}\d?$/.test(pos) ? pos : '', name: name, id: id };
+  };
   const groups = [];
-  let cur = null;
+  let cur = null, last = null;
   for (let i = hr + 1; i < rows.length; i++) {
     const row = rows[i] || [];
     const a = String(fmClean(row[cA])).toUpperCase(), b = String(fmClean(row[cB])).toUpperCase();
-    if (!b) { cur = null; continue; }
+    const cc = cabin(row);
+    if (!b) {
+      if (cc && last) (last.crew = last.crew || []).push(cc);
+      else { cur = null; last = null; }
+      continue;
+    }
     const rec = [b, String(fmClean(row[cC])).toUpperCase(), String(fmClean(row[cD])).toUpperCase(), fmTime(row[cE]), fmTime(row[cF])];
     if (a && cur && a === cur.reg) cur.rows.push(rec);
     else if (a) { cur = { reg: a, rows: [rec] }; groups.push(cur); }
     else if (cur) cur.rows.push(rec);
-    else groups.push({ reg: '', rows: [rec], orphan: 1 });
+    else { last = { reg: '', rows: [rec], orphan: 1 }; groups.push(last); if (cc) last.crew = [cc]; continue; }
+    last = cur;
+    if (cc) (cur.crew = cur.crew || []).push(cc);
   }
   return { kind: 'crew', date: date, groups: groups, file: fname || '' };
 }

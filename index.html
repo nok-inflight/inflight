@@ -6,6 +6,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="color-scheme" id="metaCS" content="only light">
 <title>Inflight Operations</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#8a6d2f">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Inflight Ops">
+<link rel="apple-touch-icon" href="icon-192.png">
 <style>
   body { font-family: Arial, sans-serif; margin: 0; background: #f4f1e8; color: #222; }
   header { background: #8a6d2f; color: #fff; padding: 8px 16px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; min-height: 26px; }
@@ -4069,7 +4075,6 @@ setInterval(() => { if (navigator.onLine && !document.hidden && oqList().length)
 // ติดตั้งเป็นแอป + เปิดหน้าเว็บได้ตอนไม่มีเน็ต (เฉพาะหน้า GitHub)
 if (ON_GH && 'serviceWorker' in navigator && (location.protocol === 'https:' || location.hostname === 'localhost')) {
   try {
-    const l = document.createElement('link'); l.rel = 'manifest'; l.href = 'manifest.json'; document.head.appendChild(l);
     window.addEventListener('load', () => { navigator.serviceWorker.register('sw.js').catch(() => { }); });
   } catch (e) { }
 }

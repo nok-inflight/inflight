@@ -870,8 +870,10 @@ function showSettings() {
   $('setReset').onclick = () => { SET = Object.assign({}, SET_DEF); saveSettings(); showSettings(); };
 }
 
-let BEEP_CTX = null;
+let BEEP_CTX = null, BEEP_AT = 0;
 function beep() {
+  if (Date.now() - BEEP_AT < 1500) return; // หลายแจ้งเตือนพร้อมกัน ดังครั้งเดียว
+  BEEP_AT = Date.now();
   try {
     const C = window.AudioContext || window.webkitAudioContext;
     BEEP_CTX = BEEP_CTX || new C();
@@ -907,6 +909,14 @@ function noteGo(n) {
     else if (n.type === 'meal' && ME.role === 'bac') { BAC_DATE = n.date || BAC_DATE; BAC_TAB = 'final'; go('bac'); }
     else if (n.type === 'meal' && ME.zones.some(z => z.id === 'inflight')) { FM.date = n.date || FM.date; FM.view = 'day'; showZoneGo('inflight', 'final'); }
     else if (n.type === 'reg' && ME.role === 'admin') { UFILTER = 'req'; go('users'); }
+    else if (n.type === 'up' && n.kind === 'final') { if (n.date) FM.date = n.date; FM.view = 'day'; showZoneGo('inflight', 'final'); }
+    else if (n.type === 'up' && n.kind === 'hot') { if (n.date) HM.month = String(n.date).slice(0, 7); showZoneGo('inflight', 'hot'); }
+    else if (n.type === 'up' && n.kind === 'cart') { if (n.date) REP_DATE = n.date; showZoneGo('inflight', 'cart'); }
+    else if (n.type === 'up' && n.kind === 'prod') showZoneGo('inflight', 'prod');
+    else if (n.type === 'up' && n.kind === 'final') { if (n.date) FM.date = n.date; FM.view = 'day'; showZoneGo('inflight', 'final'); }
+    else if (n.type === 'up' && n.kind === 'hot') { if (n.date) HM.month = String(n.date).slice(0, 7); showZoneGo('inflight', 'hot'); }
+    else if (n.type === 'up' && n.kind === 'cart') { if (n.date) REP_DATE = n.date; showZoneGo('inflight', 'cart'); }
+    else if (n.type === 'up' && n.kind === 'prod') showZoneGo('inflight', 'prod');
   };
 }
 function notify(n) {
@@ -1249,7 +1259,7 @@ async function showUsers() {
       '<td>' + (x.s ? esc((s.first + ' ' + s.last).trim()) : esc(u.name)) + '</td><td>' + esc(((s.thFirst || '') + ' ' + (s.thLast || '')).trim()) + '</td>' +
       '<td>' + (u ? esc(u.username) : '<span class="hint">-</span>') + '</td>' +
       (own ? '<td><span class="badge own">Owner</span></td><td>ใช้งาน</td><td class="st">' + esc(stampShort(st)) + '</td><td class="hint" style="white-space:nowrap">' + (u.username === ME.username ? 'บัญชีของคุณ' : 'ป้องกันการแก้ไข') + '</td></tr>' :
-      '<td><select class="rsel">' + roleOpts(u ? u.role : '', !u) + '</select>' + (u && u.request ? '<div class="ureqc"><span class="badge rq">ขอ: ' + esc(DEPT_LABEL[u.request] || u.request) + '</span><button class="rqa" title="อนุมัติ">อนุมัติ</button><button class="sec rqn" title="ไม่อนุมัติ">ไม่อนุมัติ</button></div>' : '') + '</td>' +
+      '<td><select class="rsel">' + roleOpts(u ? u.role : '', !u) + '</select>' + (u && u.request ? (u.request === '?' ? '<div class="ureqc"><span class="badge rq">รอกำหนดกลุ่ม</span> <span class="hint">เลือกกลุ่มจากช่องด้านบน</span></div>' : '<div class="ureqc"><span class="badge rq">ขอ: ' + esc(DEPT_LABEL[u.request] || u.request) + '</span><button class="rqa" title="อนุมัติ">อนุมัติ</button><button class="sec rqn" title="ไม่อนุมัติ">ไม่อนุมัติ</button></div>') : '') + '</td>' +
       '<td style="white-space:nowrap">' + (u ? (u.active ? 'ใช้งาน' : '<span class="warn">ปิดอยู่</span>') + ' <button class="sec tg" data-a="' + (u.active ? '0' : '1') + '">' + (u.active ? 'ปิด' : 'เปิด') + '</button>' : '<span class="hint">-</span>') + '</td>' +
       '<td class="st">' + esc(stampShort(st)) + '</td>' +
       '<td style="white-space:nowrap"><button class="sec ed">แก้ไข</button><button class="sec dl">ลบ</button></td></tr>');

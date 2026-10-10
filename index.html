@@ -642,9 +642,9 @@
   </div>
   <div id="rgBox" style="display:none">
   <h3>ลงทะเบียน</h3>
-  <label style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="rgExt" style="width:auto"> ไม่ใช่พนักงานนกแอร์ (บุคคลภายนอก เช่น BAC, ซัพพลายเออร์)</label>
+  <label style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="rgExt" style="width:auto"> ไม่ใช่พนักงานนกแอร์ (บุคคลภายนอก / บริษัทคู่ค้า)</label>
   <label class="rgIn">เลขพนักงาน (Staff No.)<input id="rgNo" placeholder="เช่น xxxxx หรือ NOKxxxxx" autocomplete="off"></label>
-  <label class="rgEx" style="display:none">บริษัท / หน่วยงาน<input id="rgCo" placeholder="เช่น BAC" autocomplete="organization"></label>
+  <label class="rgEx" style="display:none">บริษัท / หน่วยงาน<input id="rgCo" placeholder="ชื่อบริษัทหรือหน่วยงานของคุณ" autocomplete="organization"></label>
   <label class="rgEx" style="display:none">เบอร์โทรศัพท์ (ให้ผู้ดูแลระบบติดต่อยืนยัน)<input id="rgTel" inputmode="tel" placeholder="08xxxxxxxx" autocomplete="tel"></label>
   <label>ชื่อ (ภาษาอังกฤษ)<input id="rgF" autocomplete="given-name"></label>
   <label>นามสกุล (ภาษาอังกฤษ)<input id="rgL" autocomplete="family-name"></label>
@@ -1192,12 +1192,12 @@ function showAccount() {
     (ME.mustChange ? '<div class="imp warn">คุณยังใช้รหัสผ่านเริ่มต้น (เลขพนักงาน) กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งาน · รหัสผ่านเดิม = NOK + เลขพนักงาน เช่น NOKxxxxx (กลุ่ม BAC = BACxxxxx)</div>' : '') +
     '<div class="grid" style="max-width:300px">' +
     '<label>รหัสผ่านเดิม<input type="password" id="pw0" autocomplete="current-password"></label>' +
-    '<label>รหัสผ่านใหม่ (อย่างน้อย 8 ตัว มีตัวอักษร ตัวเลข และอักขระพิเศษ)<input type="password" id="pw1" autocomplete="new-password"></label>' +
+    '<label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว และต้องไม่ใช่เลขพนักงาน)<input type="password" id="pw1" autocomplete="new-password"></label>' +
     '<label>ยืนยันรหัสผ่านใหม่<input type="password" id="pw2" autocomplete="new-password"></label></div>' +
     '<button id="bPw">เปลี่ยนรหัสผ่าน</button>';
   $('bPw').onclick = async () => {
     if ($('pw1').value !== $('pw2').value) { toast('รหัสผ่านใหม่ไม่ตรงกัน'); return; }
-    if (!pwOk($('pw1').value)) { toast('รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัว และมีทั้งตัวอักษร ตัวเลข และอักขระพิเศษ (เช่น ! @ # $ %)'); return; }
+    if ($('pw1').value.length < 6) { toast('รหัสผ่านใหม่อย่างน้อย 6 ตัว'); return; }
     try {
       await run('changeMyPassword', $('pw0').value, $('pw1').value);
       toast('เปลี่ยนรหัสผ่านแล้ว', true);

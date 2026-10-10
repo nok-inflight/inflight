@@ -642,15 +642,18 @@
   </div>
   <div id="rgBox" style="display:none">
   <h3>ลงทะเบียน</h3>
-  <label>เลขพนักงาน (Staff No.)<input id="rgNo" placeholder="เช่น xxxxx หรือ NOKxxxxx" autocomplete="off"></label>
+  <label style="display:flex;gap:8px;align-items:center;margin-bottom:6px"><input type="checkbox" id="rgExt" style="width:auto"> ไม่ใช่พนักงานนกแอร์ (บุคคลภายนอก เช่น BAC, ซัพพลายเออร์)</label>
+  <label class="rgIn">เลขพนักงาน (Staff No.)<input id="rgNo" placeholder="เช่น xxxxx หรือ NOKxxxxx" autocomplete="off"></label>
+  <label class="rgEx" style="display:none">บริษัท / หน่วยงาน<input id="rgCo" placeholder="เช่น BAC" autocomplete="organization"></label>
+  <label class="rgEx" style="display:none">เบอร์โทรศัพท์ (ให้ผู้ดูแลระบบติดต่อยืนยัน)<input id="rgTel" inputmode="tel" placeholder="08xxxxxxxx" autocomplete="tel"></label>
   <label>ชื่อ (ภาษาอังกฤษ)<input id="rgF" autocomplete="given-name"></label>
   <label>นามสกุล (ภาษาอังกฤษ)<input id="rgL" autocomplete="family-name"></label>
   <label>ชื่อ (ภาษาไทย)<input id="rgTF"></label>
   <label>นามสกุล (ภาษาไทย)<input id="rgTL"></label>
-  <label>กลุ่มที่ต้องการใช้งาน<select id="rgR"><option value="">— เลือกกลุ่ม —</option><option value="crew">Crew (ลูกเรือ)</option><option value="bac">BAC</option><option value="inflight">Inflight Supply (IFS)</option><option value="accounting">Accounting</option><option value="purchasing">Purchasing</option></select></label>
-  <label>ตั้งรหัสผ่าน<input id="rgP1" type="password" autocomplete="new-password"></label>
-  <label>ยืนยันรหัสผ่าน<input id="rgP2" type="password" autocomplete="new-password"></label>
-  <div class="hint" style="margin-top:6px">รหัสผ่านอย่างน้อย 8 ตัว มีตัวอักษร ตัวเลข และอักขระพิเศษ (เช่น ! @ # $ %) · ระหว่างรอผู้ดูแลระบบอนุมัติกลุ่ม จะเข้าสู่ระบบได้แต่ยังใช้งานได้จำกัด</div>
+  <label class="rgEx" style="display:none">ตั้งรหัสผ่าน<input id="rgP1" type="password" autocomplete="new-password"></label>
+  <label class="rgEx" style="display:none">ยืนยันรหัสผ่าน<input id="rgP2" type="password" autocomplete="new-password"></label>
+  <div class="hint rgEx" style="display:none;margin-top:6px">รหัสผ่านอย่างน้อย 8 ตัว มีตัวอักษร ตัวเลข และอักขระพิเศษ (เช่น ! @ # $ %) · ผู้ดูแลระบบจะติดต่อยืนยันตัวตนและกำหนดกลุ่มการใช้งานให้</div>
+  <div class="hint rgIn" style="margin-top:6px">รหัสผ่านเริ่มต้น = เลขพนักงานแบบมี NOK นำหน้า (เช่น NOKxxxxx) ระบบจะให้ตั้งรหัสผ่านใหม่เมื่อเข้าสู่ระบบครั้งแรก · ผู้ดูแลระบบจะกำหนดกลุ่มการใช้งานให้ ระหว่างนั้นเข้าสู่ระบบได้แต่ยังใช้งานได้จำกัด</div>
   <button id="bReg">ลงทะเบียน</button>
   <div class="lreg">มีบัญชีแล้ว? <a href="#" id="lnkLogin">เข้าสู่ระบบ</a></div>
   </div>
@@ -1267,7 +1270,7 @@ async function showUsers() {
     h += '<tr data-i="' + i + '" data-req="' + (u && u.request ? '1' : '') + '" data-k="' + kind + '" data-q="' + esc(q) + '" data-role="' + esc(u ? u.role : '-') + '" data-act="' + (u ? (u.active ? 'on' : 'off') : '') + '"' + (own ? ' class="owner"' : '') + '>' +
       '<td class="cb"><input type="checkbox" class="usel"' + (own ? ' disabled style="visibility:hidden"' : '') + '></td>' +
       '<td>' + (x.no ? esc(x.no) : '<span class="badge">บัญชีอื่น</span>') + '</td>' +
-      '<td>' + (x.s ? esc((s.first + ' ' + s.last).trim()) : esc(u.name)) + '</td><td>' + esc(((s.thFirst || '') + ' ' + (s.thLast || '')).trim()) + '</td>' +
+      '<td>' + (x.s ? esc((s.first + ' ' + s.last).trim()) : esc(u.name)) + (u && u.contact ? '<div class="hint">' + esc(u.contact) + '</div>' : '') + '</td><td>' + esc(((s.thFirst || '') + ' ' + (s.thLast || '')).trim()) + '</td>' +
       '<td>' + (u ? esc(u.username) : '<span class="hint">-</span>') + '</td>' +
       (own ? '<td><span class="badge own">Owner</span></td><td>ใช้งาน</td><td class="st">' + esc(stampShort(st)) + '</td><td class="hint" style="white-space:nowrap">' + (u.username === ME.username ? 'บัญชีของคุณ' : 'ป้องกันการแก้ไข') + '</td></tr>' :
       '<td><select class="rsel">' + roleOpts(u ? u.role : '', !u) + '</select>' + (u && u.request ? (u.request === '?' ? '<div class="ureqc"><span class="badge rq">รอกำหนดกลุ่ม</span> <span class="hint">เลือกกลุ่มจากช่องด้านบน</span></div>' : '<div class="ureqc"><span class="badge rq">ขอ: ' + esc(DEPT_LABEL[u.request] || u.request) + '</span><button class="rqa" title="อนุมัติ">อนุมัติ</button><button class="sec rqn" title="ไม่อนุมัติ">ไม่อนุมัติ</button></div>') : '') + '</td>' +
@@ -6657,20 +6660,27 @@ async function exportXlsx() {
 $('bLogin').onclick = doLogin;
 const pwOk = p => p.length >= 8 && /[A-Za-z]/.test(p) && /\d/.test(p) && /[^A-Za-z0-9]/.test(p);
 $('lnkReg').onclick = ev => { ev.preventDefault(); $('lgBox').style.display = 'none'; $('rgBox').style.display = ''; $('rgNo').focus(); };
+$('rgExt').onchange = () => { const e = $('rgExt').checked; each('#rgBox .rgEx', x => { x.style.display = e ? '' : 'none'; }); each('#rgBox .rgIn', x => { x.style.display = e ? 'none' : ''; }); };
 $('lnkLogin').onclick = ev => { ev.preventDefault(); $('rgBox').style.display = 'none'; $('lgBox').style.display = ''; $('lu').focus(); };
 $('bReg').onclick = async () => {
-  const p = { no: $('rgNo').value.trim(), first: $('rgF').value.trim(), last: $('rgL').value.trim(), thFirst: $('rgTF').value.trim(), thLast: $('rgTL').value.trim(), role: $('rgR').value, password: $('rgP1').value };
-  if (!p.no || !p.first || !p.last) { toast('กรุณากรอกเลขพนักงาน ชื่อ และนามสกุลภาษาอังกฤษ'); return; }
-  if (!p.role) { toast('กรุณาเลือกกลุ่มที่ต้องการใช้งาน'); return; }
-  if (!pwOk(p.password)) { toast('รหัสผ่านต้องยาวอย่างน้อย 8 ตัว และมีทั้งตัวอักษร ตัวเลข และอักขระพิเศษ'); return; }
-  if (p.password !== $('rgP2').value) { toast('รหัสผ่านไม่ตรงกัน'); return; }
+  const ext = $('rgExt').checked;
+  const p = { no: $('rgNo').value.trim(), first: $('rgF').value.trim(), last: $('rgL').value.trim(), thFirst: $('rgTF').value.trim(), thLast: $('rgTL').value.trim() };
+  if (ext) {
+    Object.assign(p, { external: true, no: '', company: $('rgCo').value.trim(), phone: $('rgTel').value.trim(), password: $('rgP1').value });
+    if (!p.company || !p.phone || !p.first || !p.last) { toast('กรุณากรอกบริษัท/หน่วยงาน เบอร์โทร ชื่อ และนามสกุลภาษาอังกฤษ'); return; }
+    if (!pwOk(p.password)) { toast('รหัสผ่านต้องยาวอย่างน้อย 8 ตัว และมีทั้งตัวอักษร ตัวเลข และอักขระพิเศษ'); return; }
+    if (p.password !== $('rgP2').value) { toast('รหัสผ่านไม่ตรงกัน'); return; }
+  } else {
+    if (!p.no || !p.first || !p.last) { toast('กรุณากรอกเลขพนักงาน ชื่อ และนามสกุลภาษาอังกฤษ'); return; }
+    if (!p.thFirst || !p.thLast) { toast('กรุณากรอกชื่อและนามสกุลภาษาไทย'); return; }
+  }
   $('bReg').disabled = true;
   try {
     const r = await call_('selfRegister', [p]);
-    ['rgNo', 'rgF', 'rgL', 'rgTF', 'rgTL', 'rgR', 'rgP1', 'rgP2'].forEach(k => { $(k).value = ''; });
+    ['rgNo', 'rgF', 'rgL', 'rgTF', 'rgTL', 'rgCo', 'rgTel', 'rgP1', 'rgP2'].forEach(k => { $(k).value = ''; });
     $('rgBox').style.display = 'none'; $('lgBox').style.display = '';
     $('lu').value = r.username; $('lp').value = ''; $('lp').focus();
-    toast('ลงทะเบียนแล้ว · ชื่อผู้ใช้ของคุณคือ ' + r.username + ' · รอผู้ดูแลระบบอนุมัติกลุ่มการใช้งาน', true);
+    toast('ลงทะเบียนแล้ว · ชื่อผู้ใช้: ' + r.username + (ext ? ' · ใช้รหัสผ่านที่ตั้งไว้' : ' · รหัสผ่านเริ่มต้น: เลขพนักงานแบบมี NOK นำหน้า') + ' · รอผู้ดูแลระบบกำหนดกลุ่ม', true);
   } catch (e) { toast(/selfRegister/.test(e.message) ? 'ระบบลงทะเบียนยังไม่เปิดใช้ (ต้องอัปเดตไฟล์ Code.gs / Api.gs)' : e.message); }
   $('bReg').disabled = false;
 };

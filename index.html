@@ -1192,12 +1192,12 @@ function showAccount() {
     (ME.mustChange ? '<div class="imp warn">คุณยังใช้รหัสผ่านเริ่มต้น (เลขพนักงาน) กรุณาตั้งรหัสผ่านใหม่ก่อนใช้งาน · รหัสผ่านเดิม = NOK + เลขพนักงาน เช่น NOKxxxxx (กลุ่ม BAC = BACxxxxx)</div>' : '') +
     '<div class="grid" style="max-width:300px">' +
     '<label>รหัสผ่านเดิม<input type="password" id="pw0" autocomplete="current-password"></label>' +
-    '<label>รหัสผ่านใหม่ (อย่างน้อย 6 ตัว และต้องไม่ใช่เลขพนักงาน)<input type="password" id="pw1" autocomplete="new-password"></label>' +
+    '<label>รหัสผ่านใหม่ (อย่างน้อย 8 ตัว มีตัวอักษร ตัวเลข และอักขระพิเศษ เช่น Nok@2026 · ห้ามมีเลขพนักงาน)<input type="password" id="pw1" autocomplete="new-password"></label>' +
     '<label>ยืนยันรหัสผ่านใหม่<input type="password" id="pw2" autocomplete="new-password"></label></div>' +
     '<button id="bPw">เปลี่ยนรหัสผ่าน</button>';
   $('bPw').onclick = async () => {
     if ($('pw1').value !== $('pw2').value) { toast('รหัสผ่านใหม่ไม่ตรงกัน'); return; }
-    if ($('pw1').value.length < 6) { toast('รหัสผ่านใหม่อย่างน้อย 6 ตัว'); return; }
+    if (!pwOk($('pw1').value)) { toast('รหัสผ่านใหม่ต้องยาวอย่างน้อย 8 ตัว และมีทั้งตัวอักษร ตัวเลข และอักขระพิเศษ (เช่น Nok@2026)'); return; }
     try {
       await run('changeMyPassword', $('pw0').value, $('pw1').value);
       toast('เปลี่ยนรหัสผ่านแล้ว', true);

@@ -2210,7 +2210,18 @@ function guideList() { const a = (ME && AS_GUIDE_FOR[ME.role]) || ['all']; retur
 function guideText(x) { return JSON.stringify(x).toLowerCase(); }
 // คู่มือ PDF ฉบับเต็ม (ภาพประกอบทุกขั้นตอน) เก็บไว้ในโฟลเดอร์ manual บน GitHub แยกไฟล์ตามกลุ่มผู้ใช้
 const MANUAL_FOR = { crew: 'crew', bac: 'bac', inflight: 'inflight', accounting: 'accounting', admin: 'admin' };
-const MANUAL_BASE = () => ON_GH ? '' : 'https://nok-inflight.github.io/inflight/';
+// หาว่าไฟล์ PDF อยู่ที่ไหนบน GitHub (โฟลเดอร์หลัก / pdf / manual) แล้วจำไว้
+let PDF_DIR = null;
+async function pdfDir() {
+  if (PDF_DIR !== null) return PDF_DIR;
+  const base = ON_GH ? '' : 'https://nok-inflight.github.io/inflight/';
+  for (const d of ['', 'pdf/', 'manual/']) {
+    try { const r = await fetch(base + d + 'manual-crew.pdf', { method: 'HEAD', cache: 'no-store' }); if (r.ok) { PDF_DIR = d; return d; } } catch (e) { }
+  }
+  PDF_DIR = '';
+  return '';
+}
+const MANUAL_BASE = () => (ON_GH ? '' : 'https://nok-inflight.github.io/inflight/') + (PDF_DIR || '');
 function manualUrl() { return MANUAL_BASE() + 'manual-' + (MANUAL_FOR[ME && ME.role] || 'crew') + '.pdf'; }
 function chapUrl(id) { return MANUAL_BASE() + 'guide-' + id + '.pdf'; }
 function guidePdf(box) {
@@ -2248,6 +2259,7 @@ function showGuide() {
   each('#gTabs button', b => { b.onclick = () => { GUIDE_CUR = b.dataset.g; $('gQ').value = ''; guideDraw(); window.scrollTo(0, 0); }; });
   let t = 0;
   $('gQ').oninput = () => { clearTimeout(t); t = setTimeout(() => guideDraw($('gQ').value), 200); };
+  pdfDir().then(() => { if ($('gBody')) guideDraw($('gQ') ? $('gQ').value : ''); });
   $('gPrint').onclick = () => printHtml('<div class="pg pgp guide">' + $('gBody').innerHTML + '</div>');
   guideDraw();
 }

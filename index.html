@@ -2228,7 +2228,7 @@ function guidePdf(box) {
   const url = manualUrl(), touch = /Android|iPhone|iPad|Mobile/i.test(navigator.userAgent) || (navigator.maxTouchPoints > 1 && /Mac/.test(navigator.platform));
   box.innerHTML = '<div class="gintro"><i>📄</i><div><b>คู่มือฉบับเต็ม (PDF)</b><small>อธิบายทุกหน้าทีละขั้นตอน พร้อมภาพประกอบและหมายเลขกำกับ · ฉบับสำหรับกลุ่มของคุณ</small></div></div>' +
     '<div class="gpdfbar"><a class="gbtn" href="' + esc(url) + '" target="_blank" rel="noopener">↗ เปิดในแท็บใหม่</a><a class="gbtn sec" href="' + esc(url) + '" download>⬇ ดาวน์โหลด PDF</a></div>' +
-    (touch ? '<div class="gtip">💡 บนแท็บเล็ต/มือถือ กด "เปิดในแท็บใหม่" เพื่ออ่านแบบเลื่อนลงทีละหน้า หรือดาวน์โหลดเก็บไว้อ่านตอนไม่มีเน็ต</div>'
+    (touch || !ON_GH ? '<div class="gtip">💡 ' + (touch ? 'บนแท็บเล็ต/มือถือ' : 'หน้าเว็บนี้ (Google Apps Script) แสดง PDF ในหน้าไม่ได้ เพราะ Chrome บล็อก') + ' · กด "เปิดในแท็บใหม่" เพื่ออ่านแบบเลื่อนลงทีละหน้า หรือดาวน์โหลดเก็บไว้อ่านตอนไม่มีเน็ต</div>'
       : '<iframe class="gpdf" src="' + esc(url) + '#view=FitH" title="คู่มือ PDF"></iframe>') +
     '<p class="hint">ถ้าไม่ขึ้น: ผู้ดูแลระบบต้องอัปโหลดไฟล์คู่มือ (manual-*.pdf และ guide-*.pdf) ไว้บน GitHub ก่อน · แต่ละแท็บหน่วยงานมีปุ่มเปิดคู่มือ PDF เฉพาะบทนั้น</p>';
 }

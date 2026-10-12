@@ -1,5 +1,5 @@
 // Inflight Operations · ให้หน้าเว็บเปิดได้ตอนไม่มีอินเทอร์เน็ต (วางไฟล์นี้ไว้โฟลเดอร์เดียวกับ index.html บน GitHub)
-const CACHE = 'ifs-v1';
+const CACHE = 'ifs-v2';
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(CORE.map(u => c.add(u).catch(() => null)))).then(() => self.skipWaiting()));
@@ -22,5 +22,14 @@ self.addEventListener('fetch', e => {
   e.respondWith(caches.match(req).then(hit => {
     const net = fetch(req).then(r => { if (r && (r.ok || r.type === 'opaque')) { const c = r.clone(); caches.open(CACHE).then(x => x.put(req, c)); } return r; }).catch(() => hit);
     return hit || net;
+  }));
+});
+
+// กดที่การแจ้งเตือนบนเครื่อง → เปิดหน้าเว็บที่เปิดอยู่ (หรือเปิดใหม่)
+self.addEventListener('notificationclick', e => {
+  e.notification.close();
+  e.waitUntil(self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then(l => {
+    for (const c of l) { if ('focus' in c) return c.focus(); }
+    return self.clients.openWindow ? self.clients.openWindow('./') : null;
   }));
 });

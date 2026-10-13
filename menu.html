@@ -22,6 +22,9 @@ main { padding: 8px 12px; max-width: 760px; margin: 0 auto; }
 .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
 .it { background: var(--card); border: 1px solid var(--line); border-radius: 14px; overflow: hidden; display: flex; flex-direction: column; position: relative; }
 .it.q { border-color: var(--gold); box-shadow: 0 0 0 2px rgba(168,132,47,.25); }
+.it .pic { position: relative; } .bdg { position: absolute; left: 6px; top: 6px; background: #d62828; color: #fff; font-size: 11px; font-weight: 800; padding: 1px 8px; border-radius: 10px; letter-spacing: .5px; } .bdg.in { top: auto; bottom: 6px; background: #1a1a1a; color: #fbc400; }
+.it .nm small { display: block; font-weight: 500; font-size: 11px; color: var(--mut); margin-top: 1px; } .it .tg { padding: 0 10px 8px; display: flex; gap: 4px; flex-wrap: wrap; } .it .tg span { font-size: 11px; font-weight: 700; border: 1px solid var(--gold); color: var(--gold2); border-radius: 8px; padding: 0 6px; }
+.xnote { margin: 4px 2px 8px; color: var(--mut); font-size: 12px; } .adv { display: block; width: 100%; max-width: 520px; margin: 14px auto; border-radius: 14px; border: 1px solid var(--line); }
 .it .pic { aspect-ratio: 4/3; background: rgba(168,132,47,.1); display: flex; align-items: center; justify-content: center; font-size: 38px; } .it .pic img { width: 100%; height: 100%; object-fit: cover; }
 .it .nm { padding: 8px 10px 0; font-size: 14px; font-weight: 600; line-height: 1.3; flex: 1; } .it .pr { padding: 2px 10px 8px; color: var(--gold2); font-weight: 700; }
 .ctl { display: flex; align-items: center; justify-content: space-between; padding: 0 8px 10px; }
@@ -64,11 +67,30 @@ var TX = {
     note: 'Prices and items may vary by flight and stock is limited to what is loaded · Your order is complete once the crew confirms it and takes payment',
     offl: 'Offline · showing the menu saved on ', fail: 'Could not load the menu. Please open this page once while online (e.g. at the gate or before doors close) and it will work on board.', empty: 'No menu yet' }
 };
-var T = function (k) { return TX[L][k]; };
+var TX2 = {
+  th: { snack: 'Snack สำหรับผู้โดยสาร Nok Max', meal: 'MENU · อาหารร้อน สั่งล่วงหน้าเท่านั้น', sn: 'Snack Nok Max', ml: 'Pre-Book', pre: 'สั่งล่วงหน้าเท่านั้น (Pre-Book) ไม่สามารถสั่งผ่านหน้านี้ได้ · สอบถามลูกเรือหรือสายการบินก่อนเดินทาง', snn: 'สำหรับผู้โดยสาร Nok Max เท่านั้น เสิร์ฟบนเครื่อง', nw: 'ใหม่', intl: 'เที่ยวบินระหว่างประเทศเท่านั้น',
+    usdn: '*ราคา USD ใช้สำหรับเที่ยวบินระหว่างประเทศเท่านั้น อัตราแลกเปลี่ยนเป็นไปตามที่สายการบินกำหนด และอาจเปลี่ยนแปลงโดยไม่ต้องแจ้งให้ทราบล่วงหน้า' },
+  en: { snack: 'Snack · exclusively for Nok Max passengers', meal: 'MENU · Pre-Book only', sn: 'Snack Nok Max', ml: 'Pre-Book', pre: 'Pre-book only · cannot be ordered on this page · ask the crew or the airline before your flight', snn: 'For Nok Max passengers only · served on board', nw: 'NEW', intl: 'International flights only',
+    usdn: '*USD prices apply to international flights only. Exchange rates are determined by the airline and may change without prior notice.' }
+};
+var T = function (k) { return TX[L][k] !== undefined ? TX[L][k] : TX2[L][k]; };
+var CAT_TH = { 'COLD BEVERAGES': 'เครื่องดื่มเย็น', 'HOT BEVERAGES': 'เครื่องดื่มร้อน', 'SNACKS': 'ขนมทานเล่น', 'INSTANT NOODLES': 'บะหมี่กึ่งสำเร็จรูป', 'DESSERT': 'ของหวาน', 'PROMOTION SETS': 'เซ็ตโปรโมชัน', 'NOK MERCHANDISE': 'สินค้านก', 'THAI OTOP': 'โอท็อปไทย' };
+var catLabel = function (c) { return c.charAt(0) === '@' ? T(c.slice(1)) : (L === 'th' && CAT_TH[c] ? c + ' · ' + CAT_TH[c] : c); };
+var navLabel = function (c) { return c === '@snack' ? T('sn') : c === '@meal' ? T('ml') : c; };
+// ลำดับหน้าเมนูเรียงตามแผ่นพับ: Snack Nok Max → อาหารร้อน Pre-Book → เครื่องดื่ม → ขนม → บะหมี่ → โฆษณา → Thai OTOP → ของที่ระลึก
+var SEC_HEAD = ['@snack', '@meal', 'COLD BEVERAGES', 'HOT BEVERAGES', 'SNACKS', 'INSTANT NOODLES', 'DESSERT', 'PROMOTION SETS'], SEC_TAIL = ['@ad', 'THAI OTOP', 'NOK MERCHANDISE'];
+var ITEM_ORDER = ['Mineral Water', 'Sprite Lemon Lime', 'Coca Cola Original Taste', 'Coca Cola No Sugar', 'Minute Maid Pulpy (Orange)', 'Singha Beer', 'Hong Thong Cola', 'Starbucks Via™ Coffee (Iced)',
+  'Twinings English Breakfast Tea', 'Twinings Jasmine Green Tea', "Nescafe' Red Cup", 'Milo Active Go Chocolate Malt', 'Starbucks Via™ Pike Place Roast (Hot)',
+  'Pringles Original', 'Pringles Sour Cream and Onion', "Joe's Popcorn Almond Caramel", "Joe's Popcorn Italian Truffle", "Lay's French Fries Nori Seaweed", "Lay's French Fries Tomato Sauce",
+  'Kohkae Plus Salted and Roasted Cashew Nuts', 'Pure Tiger Peanut', 'Jeed Jard Tamarind with Plum', 'Fruiten Lime Gummy', 'Sunbites Daily Nuts Active Mix',
+  'Mama Cup Minced Pork Flavour', 'Mama Cup Shrimp Tom Yum Flavour', 'Ruski Cup Shrimp Creamy Tom Yum Kung Flavor (Halal)', 'Ruski Cup Shrimp Creamy Tom Yum Kung Flavor',
+  'Citrus Hystrix Inhaler 5 mL', 'Ferlime Oil 5 mL', 'Traditional Thai Herbal Inhaler 25 g', 'Thai Herbal Inhaler NOK Herb 10 g (White)', 'Thai Herbal Inhaler NOK Herb 10 g (Yellow)', 'Nok Pillow Blanket (Birdy)'];
+var ITEM_NEW = ["Lay's French Fries Nori Seaweed", "Lay's French Fries Tomato Sauce", 'Jeed Jard Tamarind with Plum', 'Fruiten Lime Gummy', 'Sunbites Daily Nuts Active Mix'], ITEM_INTL = ['Nok Pillow Blanket (Birdy)'];
+var rank = function (x, i) { var k = ITEM_ORDER.indexOf(x.name); return k >= 0 ? k : 1000 + i; };
 var $ = function (id) { return document.getElementById(id); };
 var esc = function (s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); };
 var money = function (n) { return Number(n).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 }); };
-var M = { items: [], at: '' }, Q = {}, CAT = '', SEAT = '', OID = '';
+var M = { items: [], x: [], at: '' }, Q = {}, CAT = '', SEAT = '', OID = '';
 function emo(c) { c = String(c).toUpperCase(); return /MEAL|FOOD|RICE/.test(c) ? '🍱' : /NOODLE|INSTANT/.test(c) ? '🍜' : /OTOP/.test(c) ? '🌿' : /PROMO/.test(c) ? '🎁' : /SNACK|BAKERY|DESSERT/.test(c) ? '🍪' : /HOT/.test(c) ? '☕' : /DRINK|BEV|WATER/.test(c) ? '🥤' : /MERCH|GIFT|SOUV/.test(c) ? '🧸' : '🛫'; }
 var LS = { get: function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
 try { var sv = LS.get('sky_lang'); if (sv) L = sv; else if (!/^th/i.test(navigator.language || '')) L = 'en'; } catch (e) { }
@@ -89,14 +111,17 @@ async function loadMenu() {
   try {
     var r = await api('ioMenuPublic', [false]);
     var imgs = (cached && cached.items || []).reduce(function (o, x) { if (x.img) o[x.name] = x.img; return o; }, {});
-    M = { items: r.items.map(function (x) { return { name: x.name, cat: x.cat, price: x.price, usd: x.usd || 0, img: imgs[x.name] || '' }; }), at: r.at, saved: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+    var imx = (cached && cached.x || []).reduce(function (o, x) { if (x.img) o[x.id] = x.img; return o; }, {});
+    M = { items: r.items.map(function (x) { return { name: x.name, cat: x.cat, price: x.price, usd: x.usd || 0, img: imgs[x.name] || '' }; }), x: (r.x || []).map(function (x) { x.img = imx[x.id] || ''; return x; }), at: r.at, saved: new Date().toISOString().slice(0, 16).replace('T', ' ') };
     LS.set(KEY, M); $('off').className = 'off'; draw();
     // รูปสินค้าโหลดตามหลัง (ไม่ให้เมนูต้องรอ)
     try {
       var ri = await api('ioMenuPublic', [true], 60000), mp = {};
       ri.items.forEach(function (x) { if (x.img) mp[x.name] = x.img; });
       M.items.forEach(function (x) { x.img = mp[x.name] || ''; });
-      if (!LS.set(KEY, M)) LS.set(KEY, { items: M.items.map(function (x) { return { name: x.name, cat: x.cat, price: x.price, usd: x.usd || 0 }; }), at: M.at, saved: M.saved });
+      var mx = {}; (ri.x || []).forEach(function (x) { if (x.img) mx[x.id] = x.img; });
+      M.x.forEach(function (x) { x.img = mx[x.id] || ''; });
+      if (!LS.set(KEY, M)) LS.set(KEY, { items: M.items.map(function (x) { return { name: x.name, cat: x.cat, price: x.price, usd: x.usd || 0 }; }), x: M.x.map(function (x) { var y = {}; for (var k in x) if (k !== 'img') y[k] = x[k]; return y; }), at: M.at, saved: M.saved });
       draw();
     } catch (e) { }
   } catch (e) {
@@ -104,23 +129,49 @@ async function loadMenu() {
     else { $('load').innerHTML = esc(T('fail')) + '<br><small style="opacity:.7">' + esc(e && e.message || e) + '</small>'; }
   }
 }
-function cats() { var c = []; M.items.forEach(function (x) { if (c.indexOf(x.cat) < 0) c.push(x.cat); }); return c; }
+function sections() {
+  var X = M.x || [], known = SEC_HEAD.concat(SEC_TAIL), mid = [];
+  M.items.forEach(function (x) { if (known.indexOf(x.cat) < 0 && mid.indexOf(x.cat) < 0) mid.push(x.cat); });
+  return SEC_HEAD.concat(mid, SEC_TAIL).filter(function (c) {
+    if (c === '@snack') return X.some(function (x) { return x.k === 'snack'; });
+    if (c === '@meal') return X.some(function (x) { return x.k === 'meal'; });
+    if (c === '@ad') return X.some(function (x) { return x.k === 'ad' && x.img; });
+    return M.items.some(function (x) { return x.cat === c; });
+  });
+}
+function bdg(nw, intl) { return (nw ? '<span class="bdg">' + T('nw') + '</span>' : '') + (intl ? '<span class="bdg in">' + T('intl') + '</span>' : ''); }
+function xCard(x, c) {
+  var nm = L === 'th' ? (x.th || x.en) : (x.en || x.th), sub = L === 'th' && x.th && x.en ? x.en : '';
+  var tags = String(x.tags || '').split(',').map(function (t) { return t.trim(); }).filter(Boolean);
+  return '<div class="it"><div class="pic">' + (x.img ? '<img loading="lazy" alt="" src="' + esc(x.img) + '">' : (c === '@snack' ? '🥪' : '🍱')) + bdg(x.isNew, x.intl) + '</div><div class="nm">' + esc(nm) + (sub ? '<small>' + esc(sub) + '</small>' : '') + '</div>' +
+    (x.price > 0 ? '<div class="pr">฿' + money(x.price) + (x.usd ? ' · $' + money(x.usd) : '') + '</div>' : '<div class="pr">&nbsp;</div>') +
+    (tags.length ? '<div class="tg">' + tags.map(function (t) { return '<span>' + esc(t) + '</span>'; }).join('') + '</div>' : '') + '</div>';
+}
 function draw() {
   document.documentElement.lang = L; $('hSub').textContent = T('sub'); $('lang').textContent = L === 'th' ? 'EN' : 'TH';
-  if (!M.items.length) { $('main').innerHTML = '<p class="note">' + T('empty') + '</p>'; return; }
-  var cs = cats();
-  $('nav').innerHTML = '<button data-c="" class="' + (CAT ? '' : 'on') + '">' + T('all') + '</button>' + cs.map(function (c) { return '<button data-c="' + esc(c) + '" class="' + (CAT === c ? 'on' : '') + '">' + esc(c) + '</button>'; }).join('');
+  if (!M.items.length && !(M.x || []).length) { $('main').innerHTML = '<p class="note">' + T('empty') + '</p>'; return; }
+  var cs = sections(), navs = cs.filter(function (c) { return c !== '@ad'; });
+  if (CAT && navs.indexOf(CAT) < 0) CAT = '';
+  $('nav').innerHTML = '<button data-c="" class="' + (CAT ? '' : 'on') + '">' + T('all') + '</button>' + navs.map(function (c) { return '<button data-c="' + esc(c) + '" class="' + (CAT === c ? 'on' : '') + '">' + esc(navLabel(c)) + '</button>'; }).join('');
   Array.prototype.forEach.call($('nav').children, function (b) { b.onclick = function () { CAT = b.getAttribute('data-c'); draw(); window.scrollTo(0, 0); }; });
   var h = '';
   cs.forEach(function (c) {
     if (CAT && CAT !== c) return;
-    h += '<div class="cat">' + esc(c) + '</div><div class="grid">' + M.items.filter(function (x) { return x.cat === c; }).map(function (x) {
-      var i = M.items.indexOf(x), q = Q[x.name] || 0;
-      return '<div class="it' + (q ? ' q' : '') + '"><div class="pic">' + (x.img ? '<img loading="lazy" alt="" src="' + esc(x.img) + '">' : emo(c)) + '</div><div class="nm">' + esc(x.name) + '</div><div class="pr">฿' + money(x.price) + (x.usd ? ' · $' + money(x.usd) : '') + '</div>' +
+    if (c === '@ad') { h += (M.x || []).filter(function (x) { return x.k === 'ad' && x.img; }).map(function (x) { return '<img class="adv" alt="' + esc(x.th || x.en || '') + '" src="' + esc(x.img) + '">'; }).join(''); return; }
+    if (c.charAt(0) === '@') {
+      h += '<div class="cat">' + esc(catLabel(c)) + '</div><div class="xnote">' + T(c === '@meal' ? 'pre' : 'snn') + '</div><div class="grid">' +
+        (M.x || []).filter(function (x) { return x.k === c.slice(1); }).map(function (x) { return xCard(x, c); }).join('') + '</div>';
+      return;
+    }
+    var list = M.items.map(function (x, i) { return { x: x, i: i, r: rank(x, i) }; }).filter(function (o) { return o.x.cat === c; }).sort(function (a, b) { return a.r - b.r || a.i - b.i; });
+    h += '<div class="cat">' + esc(catLabel(c)) + '</div><div class="grid">' + list.map(function (o) {
+      var x = o.x, i = o.i, q = Q[x.name] || 0;
+      return '<div class="it' + (q ? ' q' : '') + '"><div class="pic">' + (x.img ? '<img loading="lazy" alt="" src="' + esc(x.img) + '">' : emo(c)) + bdg(ITEM_NEW.indexOf(x.name) >= 0, ITEM_INTL.indexOf(x.name) >= 0) + '</div><div class="nm">' + esc(x.name) + '</div><div class="pr">฿' + money(x.price) + (x.usd ? ' · $' + money(x.usd) : '') + '</div>' +
         '<div class="ctl"><button data-m="' + i + '"' + (q ? '' : ' style="visibility:hidden"') + '>−</button><b>' + (q || '') + '</b><button class="p" data-p="' + i + '">+</button></div></div>';
     }).join('') + '</div>';
   });
-  $('main').innerHTML = h + '<div class="note"><b>' + T('howT') + '</b><br>' + T('how') + '</div><div class="note">' + T('note') + '</div>';
+  var anyUsd = M.items.some(function (x) { return x.usd; }) || (M.x || []).some(function (x) { return x.usd; });
+  $('main').innerHTML = h + (anyUsd ? '<div class="xnote">' + T('usdn') + '</div>' : '') + '<div class="note"><b>' + T('howT') + '</b><br>' + T('how') + '</div><div class="note">' + T('note') + '</div>';
   Array.prototype.forEach.call(document.querySelectorAll('[data-p]'), function (b) { b.onclick = function () { var n = M.items[+b.getAttribute('data-p')].name; Q[n] = (Q[n] || 0) + 1; draw(); }; });
   Array.prototype.forEach.call(document.querySelectorAll('[data-m]'), function (b) { b.onclick = function () { var n = M.items[+b.getAttribute('data-m')].name; if ((Q[n] = (Q[n] || 0) - 1) <= 0) delete Q[n]; draw(); }; });
   bar();

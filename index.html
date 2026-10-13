@@ -4688,14 +4688,18 @@ const FM_DEF_CFG = {
     { code: 'MH01', name: 'Bhindi Masala with Biryani' },
     { code: 'MH02', name: 'Aloo Gobi Pulao with Basmati' },
     { code: 'MH03', name: 'Mushroom Tom Yum Fried Rice' },
-    { code: 'MH04', name: 'Stir-Fried Chicken Basil with Egg' }
+    { code: 'MH04', name: 'Stir-Fried Chicken Basil with Egg' },
+    { code: 'MH05', name: 'Chicken Spicy Mayo' },
+    { code: 'MH06', name: 'Chicken Panang with Rice' }
   ],
   inter: [
     { code: 'MH00', name: 'Vegetarian Champignon Mushroom Panini Bread' },
     { code: 'MH01', name: 'Bhindi Masala with Biryani' },
     { code: 'MH02', name: 'Aloo Gobi Pulao with Basmati' },
     { code: 'MH03', name: 'Mushroom Tom Yum Fried Rice' },
-    { code: 'MH04', name: 'Stir-Fried Chicken Basil with Egg' }
+    { code: 'MH04', name: 'Stir-Fried Chicken Basil with Egg' },
+    { code: 'MH05', name: 'Chicken Spicy Mayo' },
+    { code: 'MH06', name: 'Chicken Panang with Rice' }
   ],
   extra: [{ code: 'BEV1', name: 'Singha (Can)' }, { code: 'BEV2', name: 'Hongthong Cola' }],
   water: 'Drinking Water 350 mL',
@@ -4723,6 +4727,12 @@ function fmRotName(rot, iso) {
   const n = rot.names.length;
   return rot.names[((k % n) + n) % n];
 }
+// เมนู MH00 ที่ใช้จริง: ถ้าตั้ง "ใช้เมนูเดิมต่อ" (rot.hold) จะใช้เมนูนั้นแทนรอบหมุนเวียน จนถึงวันที่ rot.until (ว่าง = จนกว่าจะเปลี่ยนที่ตั้งค่า)
+function fmRotUse(rot, iso) {
+  const sched = fmRotName(rot, iso);
+  if (rot && rot.hold && (rot.names || []).indexOf(rot.hold) >= 0 && (!/^\d{4}-\d{2}-\d{2}/.test(String(rot.until || '')) || iso <= rot.until)) return rot.hold;
+  return sched;
+}
 const fmSame = (a, b) => { const f = x => String(x || '').toLowerCase().replace(/[^a-z0-9]/g, '').slice(0, 14); return f(a) && f(a) === f(b); };
 const FM_MON = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
 const FM_MON3 = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
@@ -4730,6 +4740,11 @@ const FM_MON3 = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 
 function fmCfg(c) {
   const o = JSON.parse(JSON.stringify(FM_DEF_CFG));
   if (c && typeof c === 'object') Object.keys(o).forEach(k => { if (c[k] !== undefined && c[k] !== null && c[k] !== '') o[k] = c[k]; });
+  // ตั้งค่าที่เคยบันทึกไว้ก่อนมี MH05 / MH06: เติมคอลัมน์ใหม่ให้อัตโนมัติ (ลบทิ้งเองได้ที่ตั้งค่า ถ้าบันทึกใหม่แล้วจะไม่เติมซ้ำ)
+  if (c && typeof c === 'object' && !c.mh56) ['dom', 'inter'].forEach(k => {
+    if (!Array.isArray(o[k])) return;
+    FM_DEF_CFG[k].filter(x => /^MH0[56]$/.test(x.code)).forEach(x => { if (!o[k].some(y => y.code === x.code)) o[k].push({ code: x.code, name: x.name }); });
+  });
   return o;
 }
 function fmClean(v) {
@@ -4850,8 +4865,26 @@ function fmParseCrew(rows, fname) {
 
 function fmSniff(rows, fname) { return fmParseSsr(rows, fname) || fmParseCrew(rows, fname); }
 
+// กรณีไม่มีทั้ง Crewlist และ NOK DD: ใช้ตาราง SKED อย่างเดียว สร้างข้อมูลแบบเดียวกับ Crewlist (ทะเบียน + เที่ยวบิน เวลา)
+// SKED ไม่มีข้อมูลลูกเรือ จึงแบ่งบล็อกละ 4 เที่ยวต่อทะเบียนตามลำดับเที่ยว (อาจต่างจากการแบ่งตามลูกเรือจริง)
+function fmCrewFromSked(rows, date) {
+  const by = {}, order = [];
+  (rows || []).forEach(r => {
+    const reg = String(r.reg || '').toUpperCase(), num = fmNum(r.flight), sec = String(r.sector || '').toUpperCase().replace(/\s/g, '').split('-');
+    if (!reg || !num || sec.length !== 2 || !sec[0] || !sec[1]) return;
+    if (!by[reg]) { by[reg] = []; order.push(reg); }
+    by[reg].push({ seq: Number(r.seq) || by[reg].length, row: ['DD' + num, sec[0], sec[1], fmTime(r.std), fmTime(r.sta)] });
+  });
+  const groups = [];
+  order.forEach(reg => {
+    const l = by[reg].sort((a, b) => a.seq - b.seq).map(x => x.row);
+    for (let i = 0; i < l.length; i += 4) groups.push({ reg: reg, rows: l.slice(i, i + 4) });
+  });
+  return { kind: 'crew', date: date, groups: groups, file: 'SKED (ไม่มี Crewlist / NOK DD)', fromSked: 1 };
+}
+
 // ---- จัดตาราง ----
-function fmBuild(crew, ssr, ssrN, cfgIn, sked) {
+function fmBuild(crew, ssr, ssrN, cfgIn, sked, skedNext) {
   const cfg = fmCfg(cfgIn);
   const date = crew.date;
   const warn = [], info = [];
@@ -4917,18 +4950,51 @@ function fmBuild(crew, ssr, ssrN, cfgIn, sked) {
     else if (b.length) warn.push('จับคู่เครื่องค้างคืนที่ ' + st + ' ไม่ได้ (เที่ยวไปค้างคืน ' + a.length + ' เที่ยว · เที่ยวแรกของวัน ' + b.length + ' เที่ยว) ตรวจตำแหน่ง ' + b.map(r => r.f).join(', ') + ' เอง');
   });
   // ถ้ามี SKED และเที่ยวฐานอยู่ใน SKED แต่ไม่มีหมายเหตุ NIGHT STOP = ไม่ใช่เครื่องค้างคืน ไม่จับคู่ (กันเที่ยวไปต่อผิด)
-  const nsOk = f => {
+  // เครื่องค้างคืน = มีหมายเหตุ NIGHT STOP (เขียนได้หลายแบบ) ที่เที่ยวไปหรือเที่ยวต่อ หรือดูจาก SKED เองว่าเที่ยวสุดท้ายของเครื่องไม่ได้กลับ DMK
+  const NS_RE = /NIGHT\s*-?\s*STOP|NIGHT\s*STAY|\bN\s*\/?\s*S\b|\bRON\b|OVER\s*-?\s*NIGHT|ค้างคืน/i;
+  const nsOk = (f, g) => {
     const sr = skedRow[fmNum(f)];
     if (!sked || !sked.length || !sr) return null;
-    return /NIGHT\s*-?\s*STOP|\bNS\b|\bRON\b/i.test(String(sr.remark || ''));
+    if (NS_RE.test(String(sr.remark || ''))) return true;
+    const sg = g ? skedRow[fmNum(g)] : null;
+    if (sg && NS_RE.test(String(sg.remark || ''))) return true;
+    const mine = sked.filter(x => x.reg === sr.reg);
+    const last = mine.reduce((m, x) => (x.seq > m.seq ? x : m), mine[0] || sr);
+    if (last && fmNum(last.flight) === fmNum(f) && !/-DMK$/i.test(String(last.sector || '').replace(/\s/g, '')) && String(last.sector || '').trim()) return true;
+    return false;
   };
   const pairsAll = pairs.slice();
   pairs.length = 0;
   pairsAll.forEach(pr => {
-    const ok = nsOk(pr[0].f);
+    const ok = nsOk(pr[0].f, pr[1].f);
     if (ok === false) warn.push(pr[0].f + ' (' + pr[0].dep + '-' + pr[0].arr + ') ไม่มี NIGHT STOP ใน SKED ระบบจึงไม่ต่อ ' + pr[1].f + ' ไว้ใต้เที่ยวนี้ (ถ้าเป็นเครื่องค้างคืนจริง ลากเที่ยว ' + pr[1].f + ' ไปต่อเองได้)');
     else { if (ok === null) info.push(pr[0].f + ' → ' + pr[1].f + ': จับคู่จาก crewlist อย่างเดียว (ไม่มีข้อมูลเที่ยวนี้ใน SKED ให้ยืนยัน)'); pairs.push(pr); }
   });
+  // เครื่องค้างคืนที่ปลายทางมีเที่ยวต่อเช้าวันถัดไป แต่เที่ยวนั้นไม่อยู่ในไฟล์ของวันนี้ (เช่น DD536 ค้างที่ HKT → DD539 ใช้ยอดวันถัดไป)
+  // จับคู่เมื่อเหลือเที่ยวค้างคืน 1 เที่ยว กับเที่ยวใน "เที่ยวที่ใช้ยอดวันถัดไปเสมอ" ที่ไม่มีในไฟล์ 1 เที่ยว
+  {
+    const inFile = {}; blocks.forEach(b => b.rows.forEach(r => { inFile[fmNum(r.f)] = 1; })); inter.forEach(r => { inFile[fmNum(r.f)] = 1; });
+    const paired = {}; pairs.forEach(pr => { paired[fmNum(pr[0].f)] = 1; });
+    const lone = [];
+    Object.keys(ns).forEach(st => ns[st].forEach(l => { if (!paired[fmNum(l.f)] && nsOk(l.f, '') === true) lone.push(l); }));
+    const missing = String(cfg.nextDay || '').split(/[\s,]+/).map(fmNum).filter(n => n && !inFile[n]);
+    if (lone.length === 1 && missing.length === 1) {
+      const base = lone[0], num = missing[0];
+      const mv = { f: base.f.replace(/\d+$/, '') + num, dep: base.arr, arr: 'DMK', std: '', sta: '', reg: base.reg, syn: 1 };
+      // เวลาบินของเที่ยวต่อ: หาจาก SKED ของวันถัดไป (ถ้าอัปโหลดไว้)
+      const sn = (skedNext || []).filter(x => fmNum(x.flight) === num)[0];
+      if (sn) {
+        const sec = String(sn.sector || '').toUpperCase().replace(/\s/g, '').split('-');
+        if (sec.length === 2 && sec[0] && sec[1]) { mv.dep = sec[0]; mv.arr = sec[1]; }
+        mv.std = fmTime(sn.std); mv.sta = fmTime(sn.sta);
+      }
+      pairs.push([base, mv]);
+      info.push(mv.f + ' (' + mv.dep + '-' + mv.arr + ') ไม่อยู่ในไฟล์ของวันนี้ ระบบเพิ่มต่อจาก ' + base.f + ' เพราะเครื่องค้างคืนที่ ' + base.arr + (sn ? ' (เวลาบินจาก SKED วันถัดไป)' : ' (ไม่มีเวลาบิน)') + ' ใช้ยอดจากไฟล์ SSR วันถัดไป');
+      if (!sn) warn.push(mv.f + ': ยังไม่มีเวลาบิน เพราะไม่มี SKED ของวันที่ ' + fmLongDate(fmAddDay(date, 1)) + ' · อัปโหลดไฟล์ SKED วันนั้นแล้วกด "คำนวณใหม่" ระบบจะใส่เวลาให้ (หรือแก้เวลาเองในตาราง)');
+    } else if (lone.length || missing.length) {
+      if (lone.length && missing.length) warn.push('เครื่องค้างคืนที่ยังไม่มีเที่ยวต่อ: ' + lone.map(l => l.f + ' (' + l.dep + '-' + l.arr + ')').join(', ') + ' · เที่ยววันถัดไปที่ตั้งไว้แต่ไม่อยู่ในไฟล์: ' + missing.map(n => 'DD' + n).join(', ') + ' · ระบบจับคู่ให้ไม่ได้ ลากเที่ยวไปวางเองได้');
+    }
+  }
   pairs.forEach(pr => {
     const base = pr[0], mv = pr[1];
     blocks.forEach(b => { b.rows = b.rows.filter(r => r !== mv); });
@@ -4937,7 +5003,7 @@ function fmBuild(crew, ssr, ssrN, cfgIn, sked) {
     mv.pair = 1;
     if (b.rows.length < 4) b.rows.splice(b.rows.indexOf(base) + 1, 0, mv);
     else blocks.splice(bi + 1, 0, { reg: b.reg, rows: [mv] });
-    info.push(mv.f + ' (' + mv.dep + '-' + mv.arr + ' ' + mv.std + ') วางต่อจาก ' + base.f + ' เพราะเครื่องค้างคืนที่ ' + mv.dep);
+    if (!mv.syn) info.push(mv.f + ' (' + mv.dep + '-' + mv.arr + ' ' + mv.std + ') วางต่อจาก ' + base.f + ' เพราะเครื่องค้างคืนที่ ' + mv.dep);
   });
   blocks = blocks.filter(b => b.rows.length);
 
@@ -5016,7 +5082,7 @@ function fmBuild(crew, ssr, ssrN, cfgIn, sked) {
   const unmapped = {};
   const nextLong = fmLongDate(fmAddDay(date, 1));
   const rot = cfg.rot || null, rotCode = rot && rot.code ? String(rot.code).toUpperCase() : '';
-  const rotToday = fmRotName(rot, date), rotNext = fmRotName(rot, fmAddDay(date, 1));
+  const rotToday = fmRotUse(rot, date), rotNext = fmRotUse(rot, fmAddDay(date, 1));
   const colOf = (cols, code, nd) => {
     const cand = [];
     cols.forEach((c, i) => { if (c.code === code) cand.push(i); });
@@ -5030,6 +5096,8 @@ function fmBuild(crew, ssr, ssrN, cfgIn, sked) {
   };
   if (rotToday) {
     info.push(rotCode + ' (NOK Max) วันที่ ' + fmLongDate(date) + ' = ' + rotToday);
+    const rotSched = fmRotName(rot, date);
+    if (rotSched && rotSched !== rotToday) warn.push(rotCode + ': ตามรอบหมุนเวียนวันนี้ควรเป็น "' + rotSched + '" แต่ตั้งให้ใช้ "' + rotToday + '" ต่อ' + (rot.until ? ' จนถึง ' + rot.until : ' จนกว่าจะเปลี่ยนที่ตั้งค่า') + ' · เมนูเดิมใกล้หมดแล้วให้ไปล้างช่อง "ใช้เมนูเดิมต่อ" ในตั้งค่า');
     [cfg.dom, cfg.inter].forEach(cols => {
       const cand = cols.filter(c => c.code === rotCode);
       if (cand.length === 1) cand[0].name = rotToday;
@@ -5114,7 +5182,7 @@ function fmBuild(crew, ssr, ssrN, cfgIn, sked) {
   return {
     date: date, cfg: { dom: cfg.dom, inter: cfg.inter, water: cfg.water, extra: extras, domBlocks: cfg.domBlocks, interBlocks: cfg.interBlocks },
     dom: strip(blocks), inter: strip(iBlocks), warn: warn, info: info, obe: obe,
-    src: { crew: crew.file || '', ssr: ssr ? ssr.file : '', ssrN: ssrN ? ssrN.file : '' }
+    src: { crew: crew.file || '', ssr: ssr ? ssr.file : '', ssrN: ssrN ? ssrN.file : '', fromSked: crew.fromSked ? 1 : 0 }
   };
 }
 
@@ -5141,8 +5209,8 @@ function fmTpl(kind, m) {
   cols.forEach((x, i) => { const rc = 7 + 2 * i < WC ? 7 + 2 * i : 9; plan.push({ t: 'm', i: i, rc: rc, x: x }); plan.push({ t: 'tot', rc: rc + 1 }); });
   plan.push({ t: 'w', rc: WC }); plan.push({ t: 'tot', rc: WC + 1, w: 1 });
   ex.forEach(x => { plan.push({ t: 'x', i: x.i, rc: 9, x: x }); plan.push({ t: 'tot', rc: 8 }); });
-  const maxc = plan.length, totRow = 4 + nB * 4, maxr = totRow;
-  const c = {}, v = {};
+  const maxc = plan.length, totRow = 4 + nB * 4; let maxr = totRow;
+  const c = {}, v = {}, rich = {};
   const L = n => fmColLetter(n);
   const put = (r, cc, val, si) => { c[r + ',' + cc] = val === null || val === undefined || val === '' ? si : [val, si]; };
   const title = 'SSR Meal Code Depart Date : ' + fmLongDate(m.date);
@@ -5155,6 +5223,7 @@ function fmTpl(kind, m) {
     put(2, cc, code, sty('code', p.rc));
     const hdr = p.t === 'base' ? ['REG', 'FLT', 'DEP', 'ARR', 'STD', 'STA'][cc - 1] : p.t === 'm' || p.t === 'x' ? p.x.code + '  ' + p.x.name : p.t === 'w' ? m.cfg.water : 'TOTAL';
     put(3, cc, hdr, sty('hdr', p.rc, st => { if (p.t === 'x') st[4] = '002060'; }));
+    if (p.t === 'm') rich['3,' + cc] = [p.x.code + '  ', p.x.name];
   });
   const lab = ['r0', 'r1', 'r2', 'r3'];
   const menuCols = [];
@@ -5209,11 +5278,21 @@ function fmTpl(kind, m) {
     }
     put(totRow, cc, val, sty('tot', p.rc));
   });
+  let nMerge = [];
+  const nt = String(m.notes || '').trim();
+  if (nt) {
+    const nr = totRow + 1;
+    const st = sty('r0', 2, x => { x[5] = null; x[6] = ['', '', '', '']; x[7] = 'left'; x[8] = 'top'; x[9] = 1; });
+    for (let cc = 1; cc <= maxc; cc++) put(nr, cc, cc === 1 ? 'หมายเหตุ / NOTE:\n' + nt : null, st);
+    nMerge = [[nr, 1, nr, maxc]];
+    maxr = nr;
+  }
   const w = plan.map(p => p.t === 'base' ? [7.29, 8.43, 8.43, 8.43, 7.29, 7.29][p.rc - 1] : 6.29);
   const h = [30, 15, 150];
   for (let r = 4; r <= maxr; r++) h.push(15);
+  if (nt) h[maxr - 1] = Math.max(30, 15 * (nt.split(/\r?\n/).reduce((a, l) => a + Math.max(1, Math.ceil(l.length / Math.max(30, maxc * 7))), 1) + 1));
   return {
-    T: { w: w, h: h, m: [[1, 1, 1, maxc], [totRow, 1, totRow, 6]], s: S, c: c, imgs: [], maxr: maxr, maxc: maxc, page: { orient: 'landscape', scale: 100, fitH: 0 } },
+    T: { noGrid: 1, rich: rich, w: w, h: h, m: [[1, 1, 1, maxc], [totRow, 1, totRow, 6]].concat(nMerge), s: S, c: c, imgs: [], maxr: maxr, maxc: maxc, page: { orient: 'landscape', scale: 100, fitH: 0 } },
     v: v
   };
 }
@@ -5405,7 +5484,7 @@ async function fmLoad(rebuild) {
   if (!$('fmBody') || $('fmDate').value !== date) return;
   FM.d = d; FM.cfg = fmCfg(d.cfg); FM.dirty = false;
   if (d.final && d.final.data && !rebuild) { FM.model = d.final.data; FM.saved = { by: d.final.by, at: d.final.at }; }
-  else if (d.crew && d.crew.data) { await fmBuildNow(); FM.saved = d.final ? { by: d.final.by, at: d.final.at } : null; FM.dirty = !!d.final || !!rebuild; }
+  else if ((d.crew && d.crew.data) || d.sked) { await fmBuildNow(); FM.saved = d.final ? { by: d.final.by, at: d.final.at } : null; FM.dirty = !!d.final || !!rebuild; }
   else { FM.model = null; FM.saved = null; }
   fmRender();
   if (FM.view === 'month') fmMonthView();
@@ -5500,7 +5579,14 @@ async function fmBuildNow() {
   const d = FM.d;
   let sk = [];
   try { sk = await skedFor(FM.date); } catch (e) { sk = []; }
-  FM.model = fmBuild(d.crew.data, d.ssr && d.ssr.data, d.ssrN && d.ssrN.data, FM.cfg, sk);
+  const crewData = d.crew && d.crew.data ? d.crew.data : fmCrewFromSked(sk, FM.date);
+  if (!crewData.groups.length) { FM.model = null; return; }
+  const oldNotes = FM.model && FM.model.notes;
+  let skN = [];
+  try { skN = await skedFor(fmAddDay(FM.date, 1)); } catch (e) { skN = []; }
+  FM.model = fmBuild(crewData, d.ssr && d.ssr.data, d.ssrN && d.ssrN.data, FM.cfg, sk, skN);
+  if (crewData.fromSked) FM.model.warn.unshift('ตารางนี้สร้างจาก SKED อย่างเดียว (ไม่มี Crewlist / NOK DD) · แบ่งบล็อกละ 4 เที่ยวต่อทะเบียน อาจต่างจากการแบ่งตามลูกเรือจริง · ถ้ามีไฟล์ Crewlist หรือ NOK DD มาภายหลัง อัปโหลดแล้วกด "คำนวณใหม่"');
+  if (oldNotes) FM.model.notes = oldNotes;
 }
 
 // SSR ที่ออกรายงานล่วงหน้า ≥ 2 วัน (อัปโหลดไว้ใช้เป็นเที่ยวค้างคืนของวันก่อน) ยอดยังไม่ล่าสุดสำหรับวันบินนั้น
@@ -5570,14 +5656,14 @@ function fmRender() {
   const imported = m && m.src && m.src.imported;
   FM.early = fmSsrEarly(d.ssr, FM.date);
   $('fmSt').innerHTML = '<div class="fmcs">' + (d.final ? fmChip(true, imported ? 'ตารางนำเข้าจากไฟล์รายเดือน' : 'ตารางที่บันทึก', d.final, 'final', FM.date) : '') +
-    fmChip(!!d.crew, 'Crewlist ' + fmSheetDate(FM.date), d.crew, 'crew', FM.date) + (FM.early ? fmChip('wa', 'SSR ' + fmSheetDate(FM.date) + ' · ฉบับล่วงหน้า', d.ssr, 'ssr', FM.date) : fmChip(!!d.ssr, 'SSR ' + fmSheetDate(FM.date), d.ssr, 'ssr', FM.date)) +
+    fmChip(!!d.crew, (d.crew && /NOK\s*DD/i.test(d.crew.file || '') ? 'NOK DD ' : 'Crewlist ') + fmSheetDate(FM.date), d.crew, 'crew', FM.date) + (FM.early ? fmChip('wa', 'SSR ' + fmSheetDate(FM.date) + ' · ฉบับล่วงหน้า', d.ssr, 'ssr', FM.date) : fmChip(!!d.ssr, 'SSR ' + fmSheetDate(FM.date), d.ssr, 'ssr', FM.date)) +
     fmChip(!!d.ssrN, 'SSR ' + fmSheetDate(d.next) + ' (เที่ยวค้างคืน)', d.ssrN, 'ssr', d.next) +
     fmChip(!!d.sked, 'SKED ' + fmSheetDate(FM.date) + (d.sked && /REV\.?\s*\d+/i.test(d.sked.file || '') ? ' ' + (d.sked.file.match(/REV\.?\s*\d+/i)[0]).toUpperCase() : ''), d.sked, 'sked', FM.date) + '</div>';
   each('#fmSt .fmc[data-kind]', b => { b.onclick = () => fmFileMenu(b.dataset.kind, b.dataset.date); });
   const earlyMsg = FM.early ? '<div class="imp warnbox"><b>ไฟล์ SSR ของวันที่ ' + esc(dmy(FM.date)) + ' เป็นฉบับล่วงหน้า</b> (ออกรายงานวันที่ ' + esc(dmy(FM.early)) + ' อัปโหลดไว้ใช้กับเที่ยวค้างคืนของวันก่อน) ยอดอาจยังไม่ล่าสุด · อัปโหลด SSR ฉบับใหม่ของวันนี้เพื่ออัปเดตยอด' + (m ? ' แล้วกด "สร้างใหม่จากไฟล์"' : '') + '</div>' : '';
   if (!m) {
     $('fmMsg').innerHTML = earlyMsg;
-    $('fmBody').innerHTML = '<p class="hint">ยังไม่มีข้อมูลของวันที่ ' + esc(FM.date) + (can ? ' · กด "อัปโหลดไฟล์" แล้วเลือกไฟล์ SSR (SAO-O-NMR007) ของวันนี้และวันถัดไป กับไฟล์ Crewlist พร้อมกันได้เลย' : '') + '</p>' +
+    $('fmBody').innerHTML = '<p class="hint">ยังไม่มีข้อมูลของวันที่ ' + esc(FM.date) + (can ? ' · กด "อัปโหลดไฟล์" แล้วเลือกไฟล์ SSR (SAO-O-NMR007) ของวันนี้และวันถัดไป กับไฟล์ Crewlist พร้อมกันได้เลย · ถ้าไม่มี Crewlist ใช้ไฟล์ NOK DD แทนได้ · ถ้าไม่มีทั้งสองไฟล์ ให้อัปโหลดไฟล์ SKED ระบบจะสร้างตารางจาก SKED ให้' : '') + '</p>' +
       (can ? '<button class="sec" id="fmBlank">สร้างตารางเปล่า (กรอกเอง)</button>' : '');
     if ($('fmBlank')) $('fmBlank').onclick = () => {
       FM.model = fmBuild({ date: FM.date, groups: [] }, d.ssr && d.ssr.data, d.ssrN && d.ssrN.data, FM.cfg, []);
@@ -5585,17 +5671,28 @@ function fmRender() {
     };
     return;
   }
-  const impMsg = imported && d.crew ? '<div class="imp warnbox"><b>ตารางที่แสดงอยู่มาจากไฟล์ Final รายเดือนที่นำเข้า</b> (' + esc(m.src.imported) + ') ไม่ได้คำนวณจากไฟล์ SSR / Crewlist ที่อัปโหลดของวันนี้ · ถ้าจะใช้ยอดจากไฟล์ที่อัปโหลด กด <b>"คำนวณใหม่จาก SSR / Crewlist"</b> แล้วกด <b>"บันทึกตาราง"</b></div>' : '';
+  const impMsg = imported && (d.crew || d.sked) ? '<div class="imp warnbox"><b>ตารางที่แสดงอยู่มาจากไฟล์ Final รายเดือนที่นำเข้า</b> (' + esc(m.src.imported) + ') ไม่ได้คำนวณจากไฟล์ SSR / Crewlist ที่อัปโหลดของวันนี้ · ถ้าจะใช้ยอดจากไฟล์ที่อัปโหลด กด <b>"คำนวณใหม่จาก SSR / Crewlist"</b> แล้วกด <b>"บันทึกตาราง"</b></div>' : '';
   $('fmMsg').innerHTML = earlyMsg + impMsg +
     (m.warn && m.warn.length ? '<div class="imp warnbox"><b>ต้องตรวจ (' + m.warn.length + ')</b><ul>' + m.warn.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></div>' : '') +
+    '<details class="imp fmnote"' + (m.notes || can ? ' open' : '') + '><summary><b>กล่องข้อความ / หมายเหตุพิเศษ</b> <small class="hint">เขียนสิ่งที่เปลี่ยนแบบพิเศษที่ระบบไม่ได้ทำให้ · แนบลงใต้ตาราง (ชีท / Excel / พิมพ์)</small></summary>' +
+      '<textarea id="fmNote" rows="5" maxlength="2000" placeholder="เช่น วันที่ ... เที่ยวบิน ... เปลี่ยนจาก MH00 เป็น ... จำนวน ... ที่ เนื่องจาก ..."' + (can ? '' : ' readonly') + '>' + esc(m.notes || '') + '</textarea>' +
+      '<button class="sec" id="fmNoteCp">คัดลอกข้อความ</button>' + (can ? '<button class="sec" id="fmNoteTp">ใส่รูปแบบข้อความแจ้ง</button>' : '') + '</details>' +
     (m.obe ? '<details class="imp fmobe" open><summary><b>ข้อความแจ้ง OBE เปลี่ยนเมนู</b></summary><textarea id="fmObe" rows="10" readonly>' + esc(m.obe) + '</textarea><button class="sec" id="fmObeCp">คัดลอกข้อความ</button></details>' : '') +
     (m.info && m.info.length ? '<details class="fminfo"><summary>รายละเอียดการจัดตาราง (' + m.info.length + ')</summary><ul>' + m.info.map(x => '<li>' + esc(x) + '</li>').join('') + '</ul></details>' : '');
   const nI = m.inter.reduce((a, b) => a + b.rows.length, 0), nD = m.dom.reduce((a, b) => a + b.rows.length, 0);
   $('fmBody').innerHTML = '<div class="fmbar" id="fmBar"><div class="rtabs"><button data-t="dom" class="' + (FM.tab === 'dom' ? '' : 'sec') + '">DOM · ' + nD + '</button><button data-t="inter" class="' + (FM.tab === 'inter' ? '' : 'sec') + '">INTER · ' + nI + '</button>' +
     '<button data-t="sheet" class="' + (FM.tab === 'sheet' ? '' : 'sec') + '">ดูแบบชีท Excel</button></div>' +
-    (can ? '<span class="fmsv"><button id="fmSave"' + (FM.dirty ? '' : ' class="sec"') + '>บันทึกตาราง</button><button class="sec" id="fmHist" title="ดู/ใช้ตารางที่บันทึกไว้ครั้งก่อน">🕘 ประวัติ</button>' + (d.crew ? '<button class="sec" id="fmRe">' + (imported ? 'คำนวณใหม่จาก SSR / Crewlist' : 'สร้างใหม่จากไฟล์') + '</button>' : '') + '</span>' : '') +
+    (can ? '<span class="fmsv"><button id="fmSave"' + (FM.dirty ? '' : ' class="sec"') + '>บันทึกตาราง</button><button class="sec" id="fmHist" title="ดู/ใช้ตารางที่บันทึกไว้ครั้งก่อน">🕘 ประวัติ</button>' + (d.crew || d.sked ? '<button class="sec" id="fmRe">' + (imported ? 'คำนวณใหม่จาก SSR / Crewlist' : 'สร้างใหม่จากไฟล์') + '</button>' : '') + '</span>' : '') +
     '<span id="fmSvSt" class="' + (FM.dirty ? 'warn' : 'hint') + '">' + (FM.dirty ? 'ยังไม่ได้บันทึก' : FM.saved ? 'บันทึกแล้ว · ' + esc(FM.saved.by) + ' ' + esc(FM.saved.at) : '') + '</span></div><div id="fmGrid"></div>';
   each('#fmBody .rtabs button', b => { b.onclick = () => { FM.tab = b.dataset.t; FM.sel.clear(); fmRender(); }; });
+  if ($('fmNote')) {
+    $('fmNote').oninput = () => { m.notes = $('fmNote').value; FM.dirty = true; if ($('fmSvSt')) { $('fmSvSt').className = 'warn'; $('fmSvSt').textContent = 'ยังไม่ได้บันทึก'; } if ($('fmSave')) $('fmSave').className = ''; };
+    $('fmNoteCp').onclick = async () => { const t = $('fmNote').value; try { await navigator.clipboard.writeText(t); toast('คัดลอกแล้ว', true); } catch (e) { $('fmNote').select(); document.execCommand('copy'); toast('คัดลอกแล้ว', true); } };
+    if ($('fmNoteTp')) $('fmNoteTp').onclick = () => {
+      const tp = 'เรียน OBE,\n\nหน่วยงาน IFS ขอแจ้งปรับเปลี่ยนเมนูอาหารบนเครื่องบิน\n\nเที่ยวบิน: \nวันที่: \nเปลี่ยนจาก: \nเปลี่ยนเป็น: \nจำนวน: \nเหตุผล: \n';
+      const cur = $('fmNote').value; $('fmNote').value = cur ? cur.replace(/\s+$/, '') + '\n\n' + tp : tp; $('fmNote').oninput(); $('fmNote').focus();
+    };
+  }
   if ($('fmObeCp')) $('fmObeCp').onclick = async () => {
     try { await navigator.clipboard.writeText(m.obe); toast('คัดลอกแล้ว', true); } catch (e) { $('fmObe').select(); document.execCommand('copy'); toast('คัดลอกแล้ว', true); }
   };
@@ -6011,7 +6108,7 @@ function fmCfgEdit() {
     '<div class="grid fmcfg"><label>เมนู DOM<textarea id="fcDom" rows="8">' + esc(lines(c.dom)) + '</textarea></label>' +
     '<label>เมนู INTER<textarea id="fcInter" rows="8">' + esc(lines(c.inter)) + '</textarea><small class="hint">ถ้ามี MH00 คอลัมน์เดียว ชื่อหัวคอลัมน์จะเปลี่ยนตามเมนูหมุนเวียนของวันนั้น</small></label>' +
     '<label>MH00 NOK Max หมุนเวียน (บรรทัดละเมนู ตามลำดับ)<textarea id="fcRot" rows="4">' + esc((rot.names || []).join('\n')) + '</textarea>' +
-    '<span class="dd">เริ่ม <input id="fcRotD" value="' + esc(rot.start || '') + '" style="width:110px"></span><small class="hint">เปลี่ยนเมนูทุกครึ่งเดือน (1-15 / 16-สิ้นเดือน) · ยอด MH00 จะลงคอลัมน์ของเมนูที่ตรงกับช่วงวันนั้น</small></label>' +
+    '<span class="dd">ใช้เมนูเดิมต่อ <select id="fcRotH"><option value="">ตามรอบหมุนเวียน (อัตโนมัติ)</option>' + (rot.names || []).map(n => '<option' + (n === rot.hold ? ' selected' : '') + '>' + esc(n) + '</option>').join('') + '</select> ถึงวันที่ <input id="fcRotU" value="' + esc(rot.until || '') + '" placeholder="ว่าง = จนกว่าจะเปลี่ยน" style="width:150px"></span><span class="dd">เริ่ม <input id="fcRotD" value="' + esc(rot.start || '') + '" style="width:110px"></span><small class="hint">เปลี่ยนเมนูทุกครึ่งเดือน (1-15 / 16-สิ้นเดือน) · ยอด MH00 จะลงคอลัมน์ของเมนูที่ตรงกับช่วงวันนั้น</small></label>' +
     '<label>คอลัมน์เพิ่ม (แสดงเฉพาะวันที่มียอด)<textarea id="fcEx" rows="3">' + esc(lines(c.extra)) + '</textarea></label>' +
     '<label>ชื่อคอลัมน์น้ำ<input id="fcWater" value="' + esc(c.water) + '"></label>' +
     '<label>รหัสรวมเมนู (CB)<input id="fcAlias" value="' + esc(c.alias) + '"></label>' +
@@ -6035,7 +6132,7 @@ function fmCfgEdit() {
     const cfg = { dom: parse($('fcDom').value), inter: parse($('fcInter').value), extra: parse($('fcEx').value), water: $('fcWater').value.trim(), alias: $('fcAlias').value,
       ignore: $('fcIgn').value, nextDay: $('fcNd').value, menuFrom: $('fcFrom').value, retired: $('fcRet').value, menuNames: $('fcNm').value.replace(/\s*\n\s*/g, ', '), replaceWith: $('fcRepl').value, domStn: $('fcStn').value.replace(/\s+/g, ' ').trim().toUpperCase(), offsets: $('fcOff').value, turn: 60,
       domBlocks: bl[0] || 25, interBlocks: bl[1] || 5,
-      rot: { code: 'MH00', start: $('fcRotD').value, names: $('fcRot').value.split(/\r?\n/).map(x => x.trim()).filter(x => x) } };
+      rot: { code: 'MH00', start: $('fcRotD').value, names: $('fcRot').value.split(/\r?\n/).map(x => x.trim()).filter(x => x), hold: $('fcRotH').value, until: $('fcRotU').value.trim() }, mh56: 1 };
     if (!cfg.dom.length || !cfg.inter.length) { toast('ต้องมีเมนูอย่างน้อย 1 รายการ'); return; }
     try {
       await run('ioMealCfgSave', cfg);
@@ -7225,6 +7322,7 @@ function xHtml(T, vals, s, opt) {
 function xWrite(wb, name, T, vals, fx, imgCache) {
   const ws = wb.addWorksheet(name, {
     properties: { defaultRowHeight: 15 },
+    views: [{ showGridLines: false }],
     pageSetup: { paperSize: 9, orientation: T.page && T.page.orient || 'portrait', scale: T.page && T.page.scale || 100, fitToPage: true, fitToWidth: 1, fitToHeight: T.page && T.page.fitH !== undefined ? T.page.fitH : 1, horizontalCentered: true,
       margins: { left: 0.4, right: 0.4, top: 0.5, bottom: 0.5, header: 0.3, footer: 0.3 } }
   });
@@ -7245,6 +7343,11 @@ function xWrite(wb, name, T, vals, fx, imgCache) {
       if (val !== null && val !== '') x.value = val;
     }
     x.font = { name: st[0], size: st[1], bold: !!st[2], italic: !!st[3], underline: !!st[10], color: { argb: 'FF' + (st[4] || '000000') } };
+    if (T.rich && T.rich[k]) {
+      // หัวคอลัมน์เมนู: รหัสสีส้มแดง + ชื่อเมนูสีดำ (เหมือนไฟล์ต้นฉบับ)
+      const fo = c2 => ({ name: st[0], size: st[1], bold: !!st[2], italic: !!st[3], color: { argb: 'FF' + c2 } });
+      x.value = { richText: [{ text: T.rich[k][0], font: fo('E64823') }, { text: T.rich[k][1], font: fo('000000') }] };
+    }
     if (st[5]) x.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF' + st[5] } };
     const b = {};
     ['left', 'right', 'top', 'bottom'].forEach((side, i) => { if (st[6][i]) b[side] = { style: st[6][i] }; });

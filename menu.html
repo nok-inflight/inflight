@@ -40,11 +40,31 @@ main { padding: 8px 12px; max-width: 760px; margin: 0 auto; }
 .qr { background: #fff; padding: 12px; border-radius: 14px; width: min(78vw, 320px); margin: 12px auto; } .qr svg { width: 100%; height: auto; display: block; }
 .big { text-align: center; font-size: 15px; } .seat { font-size: 30px; font-weight: 800; text-align: center; letter-spacing: 2px; color: var(--gold2); }
 .tot { display: flex; justify-content: space-between; font-size: 20px; font-weight: 800; padding: 10px 0; }
+.mode { position: absolute; right: 64px; bottom: 10px; background: rgba(255,255,255,.22); border: 1px solid rgba(255,255,255,.6); color: #fff; border-radius: 14px; padding: 3px 10px; font-size: 12px; }
+.bchips { display: flex; gap: 6px; overflow-x: auto; padding: 10px 12px 0; scrollbar-width: none; } .bchips::-webkit-scrollbar { display: none; }
+.bchips button { flex: none; border: 1px solid var(--line); background: var(--card); color: var(--ink); border-radius: 18px; padding: 5px 13px; font-size: 13px; } .bchips button.on { background: var(--gold); border-color: var(--gold); color: #fff; font-weight: 600; }
+.book { position: relative; width: min(calc(100% - 24px), 560px, calc((100vh - 230px) * .7067)); aspect-ratio: 595 / 842; margin: 12px auto 6px; perspective: 2200px; touch-action: pan-y pinch-zoom; user-select: none; -webkit-user-select: none; }
+.leaf { position: absolute; inset: 0; transform-origin: left center; transition: transform .85s cubic-bezier(.45,.05,.25,1), box-shadow .85s; backface-visibility: hidden; -webkit-backface-visibility: hidden; background: #fff; border-radius: 3px 8px 8px 3px; overflow: hidden; box-shadow: 0 6px 22px rgba(0,0,0,.28); }
+.leaf.f { transform: rotateY(-178deg); pointer-events: none; box-shadow: none; } .leaf.noa { transition: none !important; } .leaf.flipping { z-index: 100 !important; box-shadow: -10px 4px 30px rgba(0,0,0,.4); }
+.leaf img.pg { width: 100%; height: 100%; display: block; object-fit: fill; pointer-events: none; }
+.leaf .sp { position: absolute; left: 0; top: 0; bottom: 0; width: 7%; background: linear-gradient(90deg, rgba(0,0,0,.28), rgba(0,0,0,.08) 55%, transparent); pointer-events: none; }
+.leaf.cover { background: linear-gradient(145deg, #6f5420, #a8842f 45%, #fbc400); color: #fff; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8%; cursor: pointer; }
+.cover .bk { font-size: 64px; filter: drop-shadow(0 4px 6px rgba(0,0,0,.3)); } .cover h2 { margin: 6px 0 2px; font-size: 30px; letter-spacing: 1px; text-shadow: 0 2px 4px rgba(0,0,0,.3); } .cover p { margin: 2px 0; opacity: .95; }
+.cover .open { margin-top: 26px; border: 2px solid rgba(255,255,255,.85); border-radius: 24px; padding: 8px 22px; font-weight: 700; animation: pulse 1.8s ease-in-out infinite; } @keyframes pulse { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@media (prefers-reduced-motion: reduce) { .leaf { transition-duration: .01s; } .cover .open { animation: none; } }
+.hs { position: absolute; border-radius: 10px; cursor: pointer; -webkit-tap-highlight-color: rgba(251,196,0,.35); transition: background .15s, box-shadow .15s; } .hs.on { background: rgba(251,196,0,.18); box-shadow: 0 0 0 2px #e0a800 inset; } .hs.na { pointer-events: none; }
+.hb { position: absolute; right: 2px; top: 2px; display: flex; align-items: center; gap: 0; background: rgba(168,132,47,.92); color: #fff; border-radius: 16px; box-shadow: 0 2px 6px rgba(0,0,0,.35); font-weight: 700; line-height: 1; } .hb button { border: 0; background: transparent; color: #fff; width: 25px; height: 25px; font-size: 17px; line-height: 1; padding: 0; } .hb i { font-style: normal; min-width: 14px; text-align: center; font-size: 13px; } .hs.rc .hb { top: 50%; transform: translateY(-50%); }
+.hs:not(.on) .hb { opacity: .8; }
+.hs:not(.on) .hb { border-radius: 50%; } .hs:not(.on) .hb .m, .hs:not(.on) .hb i { display: none; } .hs.na .hb { display: none; }
+.hs .lab { position: absolute; left: 2px; bottom: 2px; background: rgba(0,0,0,.6); color: #fff; font-size: 10px; border-radius: 8px; padding: 1px 6px; }
+.bnav { display: flex; align-items: center; justify-content: center; gap: 18px; padding: 4px 0 8px; } .bnav button { width: 46px; height: 40px; border-radius: 20px; border: 1px solid var(--gold); background: var(--card); color: var(--gold2); font-size: 24px; line-height: 1; } .bnav button:disabled { opacity: .35; } #bPg { min-width: 70px; text-align: center; color: var(--mut); font-weight: 600; }
+.bhint { text-align: center; color: var(--mut); font-size: 12px; margin: 0 12px 6px; }
 </style>
 </head>
 <body>
-<header><span class="plane">✈️</span><h1>NOK AIR · Sky Menu</h1><p id="hSub"></p><button class="lang" id="lang">EN</button></header>
+<header><span class="plane">✈️</span><h1>NOK AIR · Sky Menu</h1><p id="hSub"></p><button class="mode" id="mode"></button><button class="lang" id="lang">EN</button></header>
 <div class="off" id="off"></div>
+<div id="bookBox" style="display:none"><div class="bchips" id="bchips"></div><div class="book" id="book"></div><div class="bnav"><button id="bPrev">‹</button><span id="bPg"></span><button id="bNext">›</button></div></div>
 <nav id="nav"></nav>
 <main id="main"><p class="note" id="load"></p></main>
 <div class="bar" id="bar"><div class="sum"><b id="bN"></b><small id="bT"></small></div><button id="bGo"></button></div>
@@ -73,6 +93,10 @@ var TX2 = {
   en: { snack: 'Snack · exclusively for Nok Max passengers', meal: 'MENU · Pre-Book only', sn: 'Snack Nok Max', ml: 'Pre-Book', pre: 'Pre-book only · cannot be ordered on this page · ask the crew or the airline before your flight', snn: 'For Nok Max passengers only · served on board', nw: 'NEW', intl: 'International flights only',
     usdn: '*USD prices apply to international flights only. Exchange rates are determined by the airline and may change without prior notice.' }
 };
+TX2.th.bk = 'เล่มเมนู'; TX2.en.bk = 'Menu book'; TX2.th.ls = 'รายการ'; TX2.en.ls = 'List';
+TX2.th.cv = 'แตะเพื่อเปิดเมนู'; TX2.en.cv = 'Tap to open'; TX2.th.cov = 'ปก'; TX2.en.cov = 'Cover';
+TX2.th.hint = 'ปัด/กดลูกศรเพื่อพลิกหน้า · แตะที่สินค้าเพื่อเพิ่มลงตะกร้า'; TX2.en.hint = 'Swipe or use the arrows to turn pages · Tap a product to add it to your cart';
+TX2.th.c1 = 'Snack Nok Max'; TX2.en.c1 = 'Snack Nok Max'; TX2.th.c2 = 'Pre-Book'; TX2.en.c2 = 'Pre-Book'; TX2.th.c4 = 'เครื่องดื่ม'; TX2.en.c4 = 'Beverages'; TX2.th.c5 = 'ขนม & บะหมี่'; TX2.en.c5 = 'Snacks & Noodles'; TX2.th.c6 = 'บริการ'; TX2.en.c6 = 'Services'; TX2.th.c8 = 'OTOP & ของที่ระลึก'; TX2.en.c8 = 'OTOP & Souvenirs';
 var T = function (k) { return TX[L][k] !== undefined ? TX[L][k] : TX2[L][k]; };
 var CAT_TH = { 'COLD BEVERAGES': 'เครื่องดื่มเย็น', 'HOT BEVERAGES': 'เครื่องดื่มร้อน', 'SNACKS': 'ขนมทานเล่น', 'INSTANT NOODLES': 'บะหมี่กึ่งสำเร็จรูป', 'DESSERT': 'ของหวาน', 'PROMOTION SETS': 'เซ็ตโปรโมชัน', 'NOK MERCHANDISE': 'สินค้านก', 'THAI OTOP': 'โอท็อปไทย' };
 var catLabel = function (c) { return c.charAt(0) === '@' ? T(c.slice(1)) : (L === 'th' && CAT_TH[c] ? c + ' · ' + CAT_TH[c] : c); };
@@ -145,6 +169,104 @@ async function loadMenu() {
     else { $('load').innerHTML = esc(T('fail')) + '<br><small style="opacity:.7">' + esc(e && e.message || e) + '</small>'; }
   }
 }
+// ===== เล่มเมนูพลิกหน้า: ใช้รูปแผ่นพับเต็มหน้า (menu-p1.jpg ... menu-p8.jpg วางโฟลเดอร์เดียวกับ menu.html) + แตะสินค้าในรูปเพื่อใส่ตะกร้า =====
+// พิกัดจุดแตะ [x, y, กว้าง, สูง] เป็นหน่วยของหน้า 595 x 842 · s:1 = ตำแหน่งเสริมของสินค้าเดียวกัน (ไม่มีปุ่ม +/−) · lab = ป้ายกำกับตัวเลือก
+var BOOK = [
+  { src: 'menu-p1.jpg', hs: [] }, { src: 'menu-p2.jpg', hs: [] }, { src: 'menu-p3.jpg', hs: [] },
+  { src: 'menu-p4.jpg', hs: [
+    { n: 'Mineral Water', r: [38, 135, 78, 205] }, { n: 'Sprite Lemon Lime', r: [118, 135, 75, 205] }, { n: 'Coca Cola Original Taste', r: [208, 135, 88, 205] }, { n: 'Coca Cola No Sugar', r: [296, 135, 78, 205] },
+    { n: 'Minute Maid Pulpy (Orange)', r: [378, 135, 100, 205] }, { n: 'Singha Beer', r: [112, 347, 125, 56] }, { n: 'Hong Thong Cola', r: [245, 347, 125, 56] },
+    { n: 'Twinings English Breakfast Tea', r: [25, 495, 80, 95] }, { n: 'Twinings English Breakfast Tea', r: [35, 610, 130, 85], s: 1 },
+    { n: 'Twinings Jasmine Green Tea', r: [105, 520, 85, 85] }, { n: 'Twinings Jasmine Green Tea', r: [35, 688, 130, 75], s: 1 },
+    { n: "Nescafe' Red Cup", r: [188, 462, 35, 145] }, { n: "Nescafe' Red Cup", r: [170, 610, 115, 85], s: 1 },
+    { n: 'Milo Active Go Chocolate Malt', r: [225, 485, 45, 130] }, { n: 'Milo Active Go Chocolate Malt', r: [170, 688, 115, 75], s: 1 },
+    { n: 'Starbucks Via™ Coffee (Iced)', r: [285, 460, 225, 300] }, { n: 'Starbucks Via™ Coffee (Iced)', r: [488, 768, 107, 62], s: 1 }, { n: 'Starbucks Via™ Coffee (Iced)', r: [515, 590, 80, 175], s: 1 },
+    { n: 'Pringles Original', r: [500, 165, 95, 140], s: 1 }, { n: 'Pringles Sour Cream and Onion', r: [530, 310, 65, 110], s: 1 }] },
+  { src: 'menu-p5.jpg', hs: [
+    { n: 'Pringles Original', r: [28, 82, 236, 38], rc: 1 }, { n: 'Pringles Original', r: [0, 160, 50, 140], s: 1 }, { n: 'Pringles Sour Cream and Onion', r: [28, 120, 236, 38], rc: 1 }, { n: 'Pringles Sour Cream and Onion', r: [0, 300, 50, 140], s: 1 },
+    { n: "Joe's Popcorn Almond Caramel", r: [28, 157, 236, 38], rc: 1 }, { n: "Joe's Popcorn Almond Caramel", r: [62, 395, 95, 120], s: 1 },
+    { n: "Joe's Popcorn Italian Truffle", r: [28, 195, 236, 38], rc: 1 }, { n: "Joe's Popcorn Italian Truffle", r: [160, 372, 100, 160], s: 1 },
+    { n: "Lay's French Fries Nori Seaweed", r: [28, 233, 236, 38], rc: 1 }, { n: "Lay's French Fries Nori Seaweed", r: [300, 385, 125, 165], s: 1 },
+    { n: "Lay's French Fries Tomato Sauce", r: [28, 271, 236, 40], rc: 1 }, { n: "Lay's French Fries Tomato Sauce", r: [418, 332, 140, 205], s: 1 },
+    { n: 'Kohkae Plus Salted and Roasted Cashew Nuts', r: [268, 90, 160, 95] }, { n: 'Pure Tiger Peanut', r: [428, 90, 167, 95] },
+    { n: 'Jeed Jard Tamarind with Plum', r: [268, 188, 160, 75] }, { n: 'Fruiten Lime Gummy', r: [435, 182, 160, 80] }, { n: 'Sunbites Daily Nuts Active Mix', r: [270, 282, 160, 65] },
+    { n: 'Starbucks Via™ Pike Place Roast (Hot)', r: [0, 760, 145, 82] }, { n: 'Starbucks Via™ Pike Place Roast (Hot)', r: [0, 520, 70, 235], s: 1 },
+    { n: 'Mama Cup Minced Pork Flavour', r: [150, 620, 115, 205] }, { n: 'Mama Cup Shrimp Tom Yum Flavour', r: [285, 620, 125, 205] }, { n: 'Ruski Cup Shrimp Creamy Tom Yum Kung Flavor', r: [415, 620, 175, 205] }] },
+  { src: 'menu-p6.jpg', hs: [] }, { src: 'menu-p7.jpg', hs: [] },
+  { src: 'menu-p8.jpg', hs: [
+    { n: 'Citrus Hystrix Inhaler 5 mL', r: [28, 237, 130, 215] }, { n: 'Ferlime Oil 5 mL', r: [168, 237, 130, 215] }, { n: 'Traditional Thai Herbal Inhaler 25 g', r: [310, 237, 130, 215] },
+    { n: 'Thai Herbal Inhaler NOK Herb 10 g (White)', r: [450, 237, 72, 215], lab: 'White' }, { n: 'Thai Herbal Inhaler NOK Herb 10 g (Yellow)', r: [522, 237, 75, 215], lab: 'Yellow' },
+    { n: 'Nok Pillow Blanket (Birdy)', r: [270, 495, 325, 320] }, { n: 'Nok Pillow Blanket (Birdy)', r: [28, 610, 255, 100], s: 1 }] }
+];
+var MODE = LS.get('sky_mode') === 'list' ? 'list' : 'book', CUR = 0, BOOK_OK = false, SWIPED = false;
+try { if (sessionStorage.getItem('sky_open') === '1') CUR = 1; } catch (e) { }
+function bookBuild() {
+  if (BOOK_OK) return; BOOK_OK = true;
+  var h = '<div class="leaf cover" data-i="0"><div class="bk">📖</div><h2>NOK AIR</h2><p>Sky Menu</p><p style="font-size:13px">' + esc(T('sub')) + '</p><div class="open">' + esc(T('cv')) + '</div></div>';
+  BOOK.forEach(function (pg, k) {
+    h += '<div class="leaf" data-i="' + (k + 1) + '"><img class="pg" alt="" data-src="' + pg.src + '"><i class="sp"></i>' + pg.hs.map(function (o, j) {
+      var r = o.r, st = 'left:' + (r[0] / 5.95).toFixed(2) + '%;top:' + (r[1] / 8.42).toFixed(2) + '%;width:' + (r[2] / 5.95).toFixed(2) + '%;height:' + (r[3] / 8.42).toFixed(2) + '%';
+      return '<div class="hs na' + (o.rc ? ' rc' : '') + '" data-n="' + esc(o.n) + '" style="' + st + '">' + (o.lab ? '<span class="lab">' + o.lab + '</span>' : '') +
+        (o.s ? '' : '<span class="hb"><button class="m" data-hm>−</button><i>0</i><button data-hp>+</button></span>') + '</div>';
+    }).join('') + '</div>';
+  });
+  $('book').innerHTML = h;
+  var lv = $('book').children;
+  Array.prototype.forEach.call(lv, function (el, i) { el.style.zIndex = el._f ? i : lv.length - i; });
+  lv[0].onclick = function () { flipTo(1); };
+  Array.prototype.forEach.call(document.querySelectorAll('.hs'), function (hs) {
+    hs.onclick = function (e) {
+      if (SWIPED) return; var n = hs.getAttribute('data-n'), t = e.target;
+      if (!M.items.some(function (x) { return x.name === n; })) return;
+      if (t.hasAttribute && t.hasAttribute('data-hm')) { if ((Q[n] = (Q[n] || 0) - 1) <= 0) delete Q[n]; } else Q[n] = (Q[n] || 0) + 1;
+      e.stopPropagation(); bookSync(); bar();
+    };
+  });
+  var x0 = null, y0 = 0, bk = $('book');
+  bk.addEventListener('touchstart', function (e) { SWIPED = false; if (e.touches.length === 1) { x0 = e.touches[0].clientX; y0 = e.touches[0].clientY; } else x0 = null; }, { passive: true });
+  bk.addEventListener('touchend', function (e) {
+    if (x0 === null) return; var t = e.changedTouches[0], dx = t.clientX - x0, dy = t.clientY - y0; x0 = null;
+    if (window.visualViewport && window.visualViewport.scale > 1.05) return;
+    if (Math.abs(dx) > 45 && Math.abs(dx) > Math.abs(dy) * 1.4) { SWIPED = true; setTimeout(function () { SWIPED = false; }, 350); flipTo(CUR + (dx < 0 ? 1 : -1)); }
+  }, { passive: true });
+  document.addEventListener('keydown', function (e) { if (MODE !== 'book') return; if (e.key === 'ArrowRight') flipTo(CUR + 1); else if (e.key === 'ArrowLeft') flipTo(CUR - 1); });
+  $('bPrev').onclick = function () { flipTo(CUR - 1); }; $('bNext').onclick = function () { flipTo(CUR + 1); };
+  var first = lv[1] && lv[1].querySelector('img');
+  if (first) first.onerror = function () { if (MODE === 'book') { MODE = 'list'; draw(); } };
+  flipTo(CUR, true);
+}
+function flipTo(n, instant) {
+  var lv = $('book').children, L0 = lv.length; n = Math.max(0, Math.min(L0 - 1, n));
+  var from = CUR, jump = Math.abs(n - from) > 1; CUR = n;
+  try { if (n >= 1) sessionStorage.setItem('sky_open', '1'); } catch (e) { }
+  Array.prototype.forEach.call(lv, function (el, i) {
+    var f = i < n;
+    if (el._f !== f) {
+      el.classList.toggle('noa', !!instant || (jump && false));
+      if (!instant) { el.classList.add('flipping'); (function (e2) { setTimeout(function () { e2.classList.remove('flipping'); }, 950); })(el); el.style.transitionDelay = jump ? (Math.abs(i - from) * 0.06) + 's' : '0s'; }
+      el.classList.toggle('f', f); el._f = f;
+    }
+    el.style.zIndex = f ? i : L0 - i;
+    if (i >= n - 1 && i <= n + 2) { var im = el.querySelector('img[data-src]'); if (im) { im.src = im.getAttribute('data-src'); im.removeAttribute('data-src'); } }
+  });
+  $('bPrev').disabled = n <= 0; $('bNext').disabled = n >= L0 - 1;
+  $('bPg').textContent = n === 0 ? T('cov') : n + ' / ' + (L0 - 1);
+  var act = 0; Array.prototype.forEach.call(document.querySelectorAll('#bchips button'), function (b) { var k = +b.getAttribute('data-p'); if (k <= n) act = k; });
+  Array.prototype.forEach.call(document.querySelectorAll('#bchips button'), function (b) { b.classList.toggle('on', n > 0 && +b.getAttribute('data-p') === act); });
+}
+function bookSync() {
+  Array.prototype.forEach.call(document.querySelectorAll('.hs'), function (hs) {
+    var n = hs.getAttribute('data-n'), ok = M.items.some(function (x) { return x.name === n; }), q = Q[n] || 0;
+    hs.classList.toggle('na', !ok); hs.classList.toggle('on', q > 0);
+    var i = hs.querySelector('.hb i'); if (i) i.textContent = q;
+  });
+}
+function bookChips() {
+  var cs = [[1, 'c1'], [2, 'c2'], [4, 'c4'], [5, 'c5'], [6, 'c6'], [8, 'c8']];
+  $('bchips').innerHTML = cs.map(function (c) { return '<button data-p="' + c[0] + '">' + esc(T(c[1])) + '</button>'; }).join('');
+  Array.prototype.forEach.call($('bchips').children, function (b) { b.onclick = function () { flipTo(+b.getAttribute('data-p')); }; });
+}
+function setMode(m) { MODE = m; LS.set('sky_mode', m); draw(); window.scrollTo(0, 0); }
 function sections() {
   var X = M.x || [], known = SEC_HEAD.concat(SEC_TAIL), mid = [];
   M.items.forEach(function (x) { if (known.indexOf(x.cat) < 0 && mid.indexOf(x.cat) < 0) mid.push(x.cat); });
@@ -165,6 +287,15 @@ function xCard(x, c) {
 }
 function draw() {
   document.documentElement.lang = L; $('hSub').textContent = T('sub'); $('lang').textContent = L === 'th' ? 'EN' : 'TH';
+  $('mode').textContent = MODE === 'book' ? '☰ ' + T('ls') : '📖 ' + T('bk');
+  if (MODE === 'book') {
+    $('nav').style.display = 'none'; $('main').style.display = 'none'; $('bookBox').style.display = '';
+    bookBuild(); bookChips(); bookSync(); flipTo(CUR, true); bar();
+    if (!$('bHint')) $('bookBox').insertAdjacentHTML('beforeend', '<p class="bhint" id="bHint"></p>');
+    $('bHint').textContent = T('hint');
+    return;
+  }
+  $('nav').style.display = ''; $('main').style.display = ''; $('bookBox').style.display = 'none';
   if (!M.items.length && !(M.x || []).length) { $('main').innerHTML = '<p class="note">' + T('empty') + '</p>'; return; }
   var cs = sections(), navs = cs.filter(function (c) { return c !== '@ad'; });
   if (CAT && navs.indexOf(CAT) < 0) CAT = '';
@@ -226,8 +357,10 @@ function showQr(c, t) {
   try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(function () { }); } catch (e) { }
 }
 $('bGo').onclick = openOrder;
+$('mode').onclick = function () { setMode(MODE === 'book' ? 'list' : 'book'); };
 $('lang').onclick = function () { L = L === 'th' ? 'en' : 'th'; LS.set('sky_lang', L); draw(); };
 $('load').textContent = T('load');
+if (MODE === 'book') draw();
 window.addEventListener('online', function () { loadMenu(); });
 if ('serviceWorker' in navigator) navigator.serviceWorker.register('menu-sw.js', { scope: './menu.html' }).catch(function () { });
 loadMenu();

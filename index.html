@@ -1119,7 +1119,11 @@ const CAT_MER = ['NOK MERCHANDISE', 'THAI OTOP'];
 const isMer = c => CAT_MER.indexOf(c) >= 0;
 const CAT_FB = CAT_ORDER.filter(c => !isMer(c));
 const CAT_EMO = { 'COLD BEVERAGES': '🥤', 'HOT BEVERAGES': '☕', 'SNACKS': '🍿', 'INSTANT NOODLES': '🍜', 'DESSERT': '🥭', 'PROMOTION SETS': '🎁', 'NOK MERCHANDISE': '🛍️', 'THAI OTOP': '🌿' };
+const BROCH = ["Mineral Water", "Sprite Lemon Lime", "Coca Cola Original Taste", "Coca Cola No Sugar", "Minute Maid Pulpy (Orange)", "Singha Beer", "Hong Thong Cola", "Starbucks Via™ Coffee (Iced)", "Twinings English Breakfast Tea", "Twinings Jasmine Green Tea", "Nescafe' Red Cup", "Milo Active Go Chocolate Malt", "Starbucks Via™ Pike Place Roast (Hot)", "Pringles Original", "Pringles Sour Cream and Onion", "Joe's Popcorn Almond Caramel", "Joe's Popcorn Italian Truffle", "Lay's French Fries Nori Seaweed", "Lay's French Fries Tomato Sauce", "Kohkae Plus Salted and Roasted Cashew Nuts", "Pure Tiger Peanut", "Jeed Jard Tamarind with Plum", "Fruiten Lime Gummy", "Sunbites Daily Nuts Active Mix", "Mama Cup Minced Pork Flavour", "Mama Cup Shrimp Tom Yum Flavour", "Ruski Cup Shrimp Creamy Tom Yum Kung Flavor (Halal)", "Ruski Cup Shrimp Creamy Tom Yum Kung Flavor", "Citrus Hystrix Inhaler 5 mL", "Ferlime Oil 5 mL", "Traditional Thai Herbal Inhaler 25 g", "Thai Herbal Inhaler NOK Herb 10 g (White)", "Thai Herbal Inhaler NOK Herb 10 g (Yellow)", "Nok Pillow Blanket (Birdy)"];
+// เรียงสินค้าตามแผ่นพับ (ตัวที่ไม่อยู่ในแผ่นพับต่อท้ายตามลำดับเดิม)
+const brochSort = l => l.map((x, i) => [x, i, BROCH.indexOf(x.name)]).sort((a, b) => (a[2] < 0 ? 1000 + a[1] : a[2]) - (b[2] < 0 ? 1000 + b[1] : b[2])).map(t => t[0]);
 SALECAT.forEach(x => { x.cat = catNorm(x.cat); });
+SALECAT = brochSort(SALECAT);
 let SOLD = {}, SOLDU = {}, CUR_MODE = 'THB', HAD_SOLD = false, CH_CREW = [], HAD_CH = false;
 const hasUsd = () => SALECAT.some(x => Number(x.usd) > 0);
 const usdMoney = n => '$' + Number(n || 0).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 2 });
@@ -4656,7 +4660,7 @@ async function loadCatalog() {
       CAT_FULL = l;
       l = l.map(x => Object.assign({}, x, { cat: catNorm(x.cat) }));
       CAT_FULL = l;
-      SALECAT = l.filter(x => !x.hidden && CAT_ORDER.indexOf(x.cat) >= 0).map(x => ({ name: x.name, cat: x.cat, price: x.price, usd: Number(x.usd) || 0 }));
+      SALECAT = brochSort(l.filter(x => !x.hidden && CAT_ORDER.indexOf(x.cat) >= 0).map(x => ({ name: x.name, cat: x.cat, price: x.price, usd: Number(x.usd) || 0 })));
       l.forEach(x => { if (x.img) IMG[x.name] = x.img; });
     } else CAT_FULL = null;
   } catch (e) { CAT_FULL = null; }

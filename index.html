@@ -1949,6 +1949,7 @@ function homeQuick() {
   if (has('accounting')) q.push({ i: '📈', t: 'Total Daily Sales', f: () => showZoneGo('accounting', 'tdsr') });
   if (has('forms')) q.push({ i: '📝', t: 'แบบฟอร์ม', f: () => go('forms') });
   if (has('users')) q.push({ i: '🛡️', t: 'จัดการผู้ใช้', f: () => go('users') });
+  q.push({ i: '📱', t: 'QR เมนูผู้โดยสาร', f: menuQrShow });
   q.push({ i: '📘', t: 'คู่มือการใช้งาน', f: () => go('guide') });
   if (typeof asToggle === 'function') q.push({ i: '💬', t: 'ถามผู้ช่วย', f: () => asToggle(true) });
   return q;
@@ -2688,6 +2689,14 @@ function menuQrPrint() {
   const url = 'https://nok-inflight.github.io/inflight/menu.html';
   printHtml('<div class="pg qrpg" style="text-align:center"><h2>NOK AIR · Sky Menu</h2><p>สแกนเพื่อดูเมนูอาหาร เครื่องดื่ม และของที่ระลึก · Scan to view the menu</p>' + qrSvg(url, 340) +
     '<p style="font-size:13px">เปิดครั้งแรกขณะมีอินเทอร์เน็ต (เช่น ที่เกต) แล้วดูต่อบนเครื่องได้โดยไม่ใช้เน็ต<br>Open once while online, then browse offline on board</p></div>');
+}
+const MENU_URL = 'https://nok-inflight.github.io/inflight/menu.html';
+// หน้าต่าง QR เมนูผู้โดยสาร: ให้ผู้โดยสารสแกนจากหน้าจอได้เลย · คัดลอกลิงก์ · พิมพ์
+async function menuQrShow() {
+  const ok = await askBox('QR เมนูผู้โดยสาร', '<div style="text-align:center"><div style="background:#fff;display:inline-block;padding:10px;border-radius:12px;width:min(72vw,280px)" class="mqr">' + qrSvg(MENU_URL, 260) + '</div>' +
+    '<p style="margin:8px 0 2px;font-size:13px">ให้ผู้โดยสารสแกนด้วยกล้องมือถือ เพื่อดูเมนูและสั่งซื้อ</p><p style="margin:0;font-size:12px;opacity:.75;word-break:break-all">' + esc(MENU_URL) + '</p>' +
+    '<button type="button" class="sec" style="margin-top:8px" onclick="navigator.clipboard.writeText(MENU_URL).then(function(){toast(\'คัดลอกลิงก์แล้ว\',true)},function(){toast(\'คัดลอกไม่ได้ ให้กดค้างที่ลิงก์แล้วคัดลอกเอง\')})">📋 คัดลอกลิงก์</button></div>', '🖨️ พิมพ์ QR', 'ปิด');
+  if (ok) menuQrPrint();
 }
 function qrPrint() {
   const list = SALECAT.filter(x => !x.hidden);
@@ -3696,6 +3705,7 @@ async function openEntry(id) {
     '<div class="hint" id="skHint" style="grid-column:1/-1"></div><div class="hint" id="crHint" style="grid-column:1/-1"></div>' +
     '<datalist id="cfl">' + CHARTER.map(f => '<option value="' + esc(f) + '">').join('') + '</datalist></div>' +
     '<button type="button" class="scanb" id="bScan">📷 สแกนสินค้า (บาร์โค้ด / QR)</button>' +
+    '<button type="button" class="scanb" id="bMenuQr">📱 QR เมนูผู้โดยสาร</button>' +
     '<p style="margin:4px 0;font-size:12px;color:#666">กดที่รูปสินค้าเพื่อเพิ่มจำนวนที่ขาย (ปุ่ม − เพื่อลด) ยอด Snack &amp; Beverage กับ Merchandise จะคำนวณให้อัตโนมัติ ถ้าไม่กดรูปจะกรอกยอดเองได้เหมือนเดิม</p>' + '<div class="hint" id="stkNote" style="margin:2px 0 4px"></div>' + tilesHtml() +
     '</div><aside class="eside"><div class="ebox">' +
     '<div class="salebar"><span>F&amp;B <b id="tFB">0.00</b></span><span>MER <b id="tMER">0.00</b></span><span>รวม <b id="tAll">0.00</b></span><span id="tUSDw" style="display:none">USD <b id="tUSD">$0</b></span></div>' +
@@ -3728,7 +3738,7 @@ async function openEntry(id) {
   h += '</div><div class="ebox"><div class="esh">ลงข้อมูลแล้ว</div><div class="hint" id="stDate"></div><div id="stBox"></div></div></aside></div>';
   $('app').innerHTML = h;
   SIGN = (INFO && INFO.sign) || ''; signShow();
-  $('bSign').onclick = signOpen; $('bScan').onclick = scanOpen;
+  $('bSign').onclick = signOpen; $('bScan').onclick = scanOpen; $('bMenuQr').onclick = menuQrShow;
   phInit();
   CHK_INFO = INFO ? { reg: INFO.reg, set: INFO.set, at: INFO.at } : null; chkEntryDraw(CHK_INFO);
   datePick($('Date'), 'crew');

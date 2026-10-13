@@ -4706,6 +4706,7 @@ const FM_DEF_CFG = {
   alias: 'CB03=MH03+BEV1, CB08=MH03+BEV2, CB04=MH04+BEV1, CB09=MH04+BEV2',
   ignore: 'MS00 MS01 MS02 SN02 SN03 CB10 CB11',
   nextDay: '123, 539',
+  nsDep: '07:00',
   domStn: FM_DOM_STN,
   offsets: 'HYD=-1.5, HAN=0',
   turn: 60,
@@ -4987,10 +4988,17 @@ function fmBuild(crew, ssr, ssrN, cfgIn, sked, skedNext) {
         const sec = String(sn.sector || '').toUpperCase().replace(/\s/g, '').split('-');
         if (sec.length === 2 && sec[0] && sec[1]) { mv.dep = sec[0]; mv.arr = sec[1]; }
         mv.std = fmTime(sn.std); mv.sta = fmTime(sn.sta);
+      } else {
+        // ไม่มี SKED วันถัดไป: ประมาณเวลา = เวลาออกเช้า (ตั้งค่า nsDep) + เวลาบินเท่าเที่ยวไปค้างคืน (แสดงตัวแดงเหมือนเที่ยวที่ประมาณเวลา)
+        const b0 = fmMin(base.std), b1 = fmMin(base.sta), d0 = fmMin(String(cfg.nsDep || '07:00'));
+        if (b0 < 9999 && b1 < 9999 && d0 < 9999) {
+          const blk = ((b1 - b0) % 1440 + 1440) % 1440;
+          mv.std = fmHHMM(d0); mv.sta = fmHHMM(d0 + blk); mv.est = 1;
+        }
       }
       pairs.push([base, mv]);
-      info.push(mv.f + ' (' + mv.dep + '-' + mv.arr + ') ไม่อยู่ในไฟล์ของวันนี้ ระบบเพิ่มต่อจาก ' + base.f + ' เพราะเครื่องค้างคืนที่ ' + base.arr + (sn ? ' (เวลาบินจาก SKED วันถัดไป)' : ' (ไม่มีเวลาบิน)') + ' ใช้ยอดจากไฟล์ SSR วันถัดไป');
-      if (!sn) warn.push(mv.f + ': ยังไม่มีเวลาบิน เพราะไม่มี SKED ของวันที่ ' + fmLongDate(fmAddDay(date, 1)) + ' · อัปโหลดไฟล์ SKED วันนั้นแล้วกด "คำนวณใหม่" ระบบจะใส่เวลาให้ (หรือแก้เวลาเองในตาราง)');
+      info.push(mv.f + ' (' + mv.dep + '-' + mv.arr + ') ไม่อยู่ในไฟล์ของวันนี้ ระบบเพิ่มต่อจาก ' + base.f + ' เพราะเครื่องค้างคืนที่ ' + base.arr + (sn ? ' (เวลาบินจาก SKED วันถัดไป)' : mv.est ? ' (ประมาณเวลา ' + mv.std + '-' + mv.sta + ')' : ' (ไม่มีเวลาบิน)') + ' ใช้ยอดจากไฟล์ SSR วันถัดไป');
+      if (!sn) warn.push(mv.f + ': ' + (mv.est ? 'ระบบประมาณเวลาให้ (ตัวแดง) ' + mv.std + '-' + mv.sta + ' เพราะ' : 'ยังไม่มีเวลาบิน เพราะ') + 'ไม่มี SKED ของวันที่ ' + fmLongDate(fmAddDay(date, 1)) + ' · อัปโหลดไฟล์ SKED วันนั้นแล้วกด "คำนวณใหม่" ระบบจะใส่เวลาจริงให้ (หรือแก้เวลาเองในตาราง)');
     } else if (lone.length || missing.length) {
       if (lone.length && missing.length) warn.push('เครื่องค้างคืนที่ยังไม่มีเที่ยวต่อ: ' + lone.map(l => l.f + ' (' + l.dep + '-' + l.arr + ')').join(', ') + ' · เที่ยววันถัดไปที่ตั้งไว้แต่ไม่อยู่ในไฟล์: ' + missing.map(n => 'DD' + n).join(', ') + ' · ระบบจับคู่ให้ไม่ได้ ลากเที่ยวไปวางเองได้');
     }
@@ -6117,6 +6125,7 @@ function fmCfgEdit() {
     '<label>เมนูที่ยกเลิกแล้ว (ต้องแจ้ง OBE ทุกครั้ง)<input id="fcRet" value="' + esc(c.retired) + '"></label>' +
     '<label>ชื่อเมนูสำหรับข้อความแจ้ง OBE<textarea id="fcNm" rows="3">' + esc(c.menuNames) + '</textarea></label>' +
     '<label>เปลี่ยนเป็นเมนู<input id="fcRepl" value="' + esc(c.replaceWith) + '"></label>' +
+    '<label>เวลาออกโดยประมาณของเที่ยวต่อเช้าวันถัดไป (เมื่อไม่มี SKED วันถัดไป)<input id="fcNsD" value="' + esc(c.nsDep || '07:00') + '" style="width:90px"><small class="hint">เช่น 07:00 · เวลาถึง = เวลาออก + เวลาบินเท่าเที่ยวไปค้างคืน · ตัวแดง = ประมาณ</small></label>' +
     '<label>เที่ยวที่ใช้ยอดวันถัดไปเสมอ<input id="fcNd" value="' + esc(c.nextDay) + '"><small class="hint">นอกจากนี้ระบบหาเที่ยวที่เครื่องค้างคืนต่างจังหวัดให้เอง</small></label>' +
     '<label>สถานีในประเทศ<textarea id="fcStn" rows="3">' + esc(c.domStn) + '</textarea></label>' +
     '<label>เวลาท้องถิ่นสถานีต่างประเทศ (ชม. จากไทย)<input id="fcOff" value="' + esc(c.offsets) + '"></label>' +
@@ -6130,7 +6139,7 @@ function fmCfgEdit() {
   $('fcSave').onclick = async () => {
     const bl = $('fcBl').value.split('/').map(x => Number(x.trim()) || 0);
     const cfg = { dom: parse($('fcDom').value), inter: parse($('fcInter').value), extra: parse($('fcEx').value), water: $('fcWater').value.trim(), alias: $('fcAlias').value,
-      ignore: $('fcIgn').value, nextDay: $('fcNd').value, menuFrom: $('fcFrom').value, retired: $('fcRet').value, menuNames: $('fcNm').value.replace(/\s*\n\s*/g, ', '), replaceWith: $('fcRepl').value, domStn: $('fcStn').value.replace(/\s+/g, ' ').trim().toUpperCase(), offsets: $('fcOff').value, turn: 60,
+      ignore: $('fcIgn').value, nextDay: $('fcNd').value, nsDep: $('fcNsD').value.trim() || '07:00', menuFrom: $('fcFrom').value, retired: $('fcRet').value, menuNames: $('fcNm').value.replace(/\s*\n\s*/g, ', '), replaceWith: $('fcRepl').value, domStn: $('fcStn').value.replace(/\s+/g, ' ').trim().toUpperCase(), offsets: $('fcOff').value, turn: 60,
       domBlocks: bl[0] || 25, interBlocks: bl[1] || 5,
       rot: { code: 'MH00', start: $('fcRotD').value, names: $('fcRot').value.split(/\r?\n/).map(x => x.trim()).filter(x => x), hold: $('fcRotH').value, until: $('fcRotU').value.trim() }, mh56: 1 };
     if (!cfg.dom.length || !cfg.inter.length) { toast('ต้องมีเมนูอย่างน้อย 1 รายการ'); return; }

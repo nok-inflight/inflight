@@ -77,23 +77,36 @@ function emo(c) { c = String(c).toUpperCase(); return /MEAL|FOOD|RICE/.test(c) ?
 var LS = { get: function (k) { try { return JSON.parse(localStorage.getItem(k)); } catch (e) { return null; } }, set: function (k, v) { try { localStorage.setItem(k, JSON.stringify(v)); return true; } catch (e) { return false; } } };
 try { var sv = LS.get('sky_lang'); if (sv) L = sv; else if (!/^th/i.test(navigator.language || '')) L = 'en'; } catch (e) { }
 
+async function api(fn, args, ms) {
+  var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, ms || 40000);
+  try {
+    var r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: fn, args: args }), signal: ctl.signal });
+    var t = await r.text(), d;
+    try { d = JSON.parse(t); } catch (e) { throw new Error('เซิร์ฟเวอร์ตอบกลับไม่ถูกต้อง (Deploy เป็น Anyone หรือยัง?)'); }
+    if (!d.ok) throw new Error(d.error);
+    return d.result;
+  } finally { clearTimeout(tm); }
+}
 async function loadMenu() {
   var cached = LS.get(KEY);
   if (cached && cached.items) { M = cached; draw(); }
   try {
-    var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 20000);
-    var r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: 'ioMenuPublic', args: [] }), signal: ctl.signal });
-    clearTimeout(tm);
-    var d = JSON.parse(await r.text());
-    if (!d.ok) throw new Error(d.error);
-    M = d.result; M.saved = new Date().toISOString().slice(0, 16).replace('T', ' ');
-    if (!LS.set(KEY, M)) { var lite = { items: M.items.map(function (x) { return { name: x.name, cat: x.cat, price: x.price, usd: x.usd }; }), at: M.at, saved: M.saved }; LS.set(KEY, lite); }
-    $('off').className = 'off';
+    var r = await api('ioMenuPublic', [false]);
+    var imgs = (cached && cached.items || []).reduce(function (o, x) { if (x.img) o[x.name] = x.img; return o; }, {});
+    M = { items: r.items.map(function (x) { return { name: x.name, cat: x.cat, price: x.price, img: imgs[x.name] || '' }; }), at: r.at, saved: new Date().toISOString().slice(0, 16).replace('T', ' ') };
+    LS.set(KEY, M); $('off').className = 'off'; draw();
+    // รูปสินค้าโหลดตามหลัง (ไม่ให้เมนูต้องรอ)
+    try {
+      var ri = await api('ioMenuPublic', [true], 60000), mp = {};
+      ri.items.forEach(function (x) { if (x.img) mp[x.name] = x.img; });
+      M.items.forEach(function (x) { x.img = mp[x.name] || ''; });
+      if (!LS.set(KEY, M)) LS.set(KEY, { items: M.items.map(function (x) { return { name: x.name, cat: x.cat, price: x.price }; }), at: M.at, saved: M.saved });
+      draw();
+    } catch (e) { }
   } catch (e) {
-    if (cached && cached.items) { $('off').textContent = T('offl') + (cached.saved || ''); $('off').className = 'off on'; }
-    else { $('load').textContent = T('fail'); return; }
+    if (cached && cached.items) { $('off').textContent = T('offl') + (cached.saved || ''); $('off').className = 'off on'; draw(); }
+    else { $('load').innerHTML = esc(T('fail')) + '<br><small style="opacity:.7">' + esc(e && e.message || e) + '</small>'; }
   }
-  draw();
 }
 function cats() { var c = []; M.items.forEach(function (x) { if (c.indexOf(x.cat) < 0) c.push(x.cat); }); return c; }
 function draw() {

@@ -296,6 +296,14 @@
   body.solo #side, body.solo #nBack, body.solo #nFwd, body.solo #undoB, body.solo #bFind, body.solo #live, body.solo #asBtn, body.solo #asPanel { display: none !important; }
   body.solo #main { max-width: 1280px; margin: 0 auto; width: 100%; min-width: 0; box-sizing: border-box; } body.solo #app, body.solo #zc { min-width: 0; max-width: 100%; } .stkscroll { max-width: 100%; }
   body.solo .pshead { justify-content: flex-end; } body.solo .pshead h4 { display: none; }
+  .phqr { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; padding: 14px; }
+  .phqrimg { background: #fff; padding: 10px; border-radius: 12px; line-height: 0; box-shadow: 0 2px 8px rgba(0,0,0,.12); }
+  .phqrimg svg { width: 200px; height: 200px; }
+  .phqrtx { flex: 1 1 260px; display: flex; flex-direction: column; gap: 8px; min-width: 0; } .phqrtx > b { font-size: 16px; }
+  .phlink code { display: block; padding: 6px 10px; border-radius: 6px; background: rgba(255,202,8,.15); word-break: break-all; font-size: 13px; }
+  .phtiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
+  .phtile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: 12px; background: rgba(255,202,8,.1); color: inherit; border: 1px solid rgba(138,109,47,.3); margin: 0; }
+  .phtile span { font-size: 26px; } .phtile:hover { background: rgba(255,202,8,.22); }
   .stkscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .stkcat { margin: 10px 0; } .stkcat > b { font-size: 15px; }
   table.stkt { border-collapse: collapse; width: 100%; margin-top: 6px; font-size: 13px; }
@@ -3892,6 +3900,43 @@ async function psExcel(R, list) {
   R.rows.forEach(x => { const tp = x.out ? ['เบิก', x.out] : x.in ? ['รับเข้า', x.in] : ['ยอดตั้งต้น', x.open]; put(s2, r++, [dmy(x.date), x.time || '', x.code, x.name, tp[0], tp[1], x.unit, x.dept, x.signer, x.note, x.by]); });
   [s1, s2].forEach(w => { w.pageSetup = { orientation: 'landscape', fitToPage: true, fitToWidth: 1, fitToHeight: 0, paperSize: 9 }; });
   await downloadWb(wb, 'Stock_Procurement_' + PS.from + '_' + PS.to + '.xlsx');
+}
+
+// Procurement › หน้าหลัก: QR / ลิงก์เปิดหน้า Stock Procurement (?app=stock) + ทางลัด
+const STOCK_URL = 'https://nok-inflight.github.io/inflight/?app=stock';
+function stockQrPrint() {
+  printHtml('<div class="pg qrpg" style="text-align:center"><h2>Stock Procurement</h2><p>สแกนเพื่อเปิดหน้าเบิก / รับเข้า Stock · ล็อกอินด้วยบัญชีของคุณ</p>' +
+    '<div style="display:inline-block;width:320px">' + qrSvg(STOCK_URL, 320) + '</div><p style="font-size:14px;word-break:break-all">' + esc(STOCK_URL) + '</p></div>');
+}
+async function stockQrPng() {
+  let svg = qrSvg(STOCK_URL, 600); if (!/xmlns=/.test(svg)) svg = svg.replace('<svg ', '<svg xmlns="http://www.w3.org/2000/svg" ');
+  const img = new Image();
+  await new Promise((ok, ko) => { img.onload = ok; img.onerror = () => ko(new Error('สร้างรูป QR ไม่ได้')); img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(svg); }).catch(e => { toast(e.message); throw e; });
+  const W = 800, c = document.createElement('canvas'); c.width = W; c.height = 980;
+  const g = c.getContext('2d');
+  g.fillStyle = '#fff'; g.fillRect(0, 0, W, c.height);
+  g.fillStyle = '#8a6d2f'; g.fillRect(0, 0, W, 110);
+  g.fillStyle = '#fff'; g.font = 'bold 44px sans-serif'; g.textAlign = 'center'; g.fillText('Stock Procurement', W / 2, 72);
+  g.drawImage(img, 100, 150, 600, 600);
+  g.fillStyle = '#333'; g.font = '28px sans-serif'; g.fillText('สแกนเพื่อเบิก / รับเข้า Stock', W / 2, 810);
+  g.fillStyle = '#666'; g.font = '22px sans-serif'; g.fillText('ล็อกอินด้วยบัญชีของคุณ', W / 2, 850);
+  g.fillStyle = '#8a6d2f'; g.font = '20px monospace'; g.fillText(STOCK_URL, W / 2, 910);
+  const a = document.createElement('a'); a.href = c.toDataURL('image/png'); a.download = 'QR_Stock_Procurement.png'; document.body.appendChild(a); a.click(); a.remove();
+}
+function procHomePage(box) {
+  const tiles = zoneTopics('purchasing').filter(t => t[0] !== 'phome' && t[0] !== '-');
+  const ICO = { quote: '📝', qfiles: '📄', pstock: '📦', stock: '✈️' };
+  box.innerHTML = '<h4>หน้าหลัก Procurement</h4>' +
+    '<div class="imp phqr"><div class="phqrimg">' + qrSvg(STOCK_URL, 220) + '</div><div class="phqrtx"><b>📱 สแกนเพื่อเปิดหน้า Stock Procurement</b>' +
+    '<div class="hint">ใช้กล้องมือถือสแกน แล้วล็อกอินด้วยบัญชีของตัวเอง จะเข้าหน้าเบิก / รับเข้า Stock ทันที (ไม่มีเมนูอื่น) · ใช้ได้กับบัญชี Admin, Procurement, Inflight, BAC, Accounting</div>' +
+    '<div class="phlink"><code id="phUrl">' + esc(STOCK_URL) + '</code></div>' +
+    '<div class="dd" style="flex-wrap:wrap;gap:6px"><button class="sec" id="phCopy">คัดลอกลิงก์</button><button class="sec" id="phPng">⬇ ดาวน์โหลดรูป QR</button><button class="sec" id="phPrint">🖨 พิมพ์ QR</button><button class="sec" id="phOpen">เปิดลิงก์</button></div></div></div>' +
+    '<div class="phtiles">' + tiles.map(t => '<button type="button" class="phtile" data-t="' + t[0] + '"><span>' + (ICO[t[0]] || '📁') + '</span><b>' + esc(t[1]) + '</b></button>').join('') + '</div>';
+  $('phCopy').onclick = () => { try { navigator.clipboard.writeText(STOCK_URL).then(() => toast('คัดลอกลิงก์แล้ว', true), () => toast('คัดลอกไม่ได้ ลองกดค้างที่ลิงก์แล้วคัดลอก')); } catch (e) { toast('คัดลอกไม่ได้ ลองกดค้างที่ลิงก์แล้วคัดลอก'); } };
+  $('phPng').onclick = () => stockQrPng().catch(() => { });
+  $('phPrint').onclick = stockQrPrint;
+  $('phOpen').onclick = () => window.open(STOCK_URL, '_blank');
+  each('.phtile', b => { b.onclick = () => showZone('purchasing', b.dataset.t); });
 }
 
 // ลิงก์เฉพาะ ?app=stock : ล็อกอินด้วยบัญชีเดิมแล้วเข้าหน้า Stock Procurement หน้าเดียว
@@ -8669,7 +8714,7 @@ const ZONE_TOPICS = {
     ['-', 'รายงานบัญชี'], ['rti', 'In-Flight Receipt & Tax Invoice'], ['cart', 'Cart Pattern Payment Report'], ['sob', 'SOB Report'], ['tdsr', 'Total Daily Sales Report']
   ],
   purchasing: [
-    ['quote', 'คำขอใบเสนอราคา'], ['qfiles', 'ใบเสนอราคา (ดาวน์โหลด)'], ['pstock', 'Stock Procurement'], ['stock', 'Stock Inflight (รวม DOM+INTER)']
+    ['phome', 'หน้าหลัก'], ['quote', 'คำขอใบเสนอราคา'], ['qfiles', 'ใบเสนอราคา (ดาวน์โหลด)'], ['pstock', 'Stock Procurement'], ['stock', 'Stock Inflight (รวม DOM+INTER)']
   ],
   accounting: [
     ['rti', '1. In-Flight Receipt & Tax Invoice'], ['cart', '2. Cart Pattern Payment Report'], ['sob', '3. SOB Report'], ['comm', '4. Crew Commission'], ['tdsr', '5. Total Daily Sales Report']
@@ -8679,7 +8724,7 @@ const ZONE_CUR = {};
 let REP_DATE = '';
 
 // Inflight เห็นเฉพาะหน้า "ใบเสนอราคา (ดาวน์โหลด)" ของ Procurement
-function zoneTopics(zid) { const L = ZONE_TOPICS[zid] || []; return zid === 'purchasing' && ME && ME.role === 'inflight' ? L.filter(t => t[0] === 'qfiles' || t[0] === 'pstock') : L; }
+function zoneTopics(zid) { const L = ZONE_TOPICS[zid] || []; return zid === 'purchasing' && ME && ME.role === 'inflight' ? L.filter(t => t[0] === 'phome' || t[0] === 'qfiles' || t[0] === 'pstock') : L; }
 function showZone(zid, topic) {
   const list = zoneTopics(zid);
   if (topic && !list.some(t => t[0] === topic)) topic = '';
@@ -8704,6 +8749,7 @@ function showZone(zid, topic) {
   else if (topic === 'hot') hmPage(box);
   else if (topic === 'imp') impPage(box);
   else if (zid === 'purchasing' && topic === 'stock') procStockPage(box);
+  else if (topic === 'phome') procHomePage(box);
   else if (topic === 'quote') quotePage(box);
   else if (topic === 'qfiles') qfilesPage(box);
   else if (topic === 'pstock') pstockPage(box);

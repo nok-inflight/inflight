@@ -78,7 +78,9 @@ function keep() {
 }
 function draw() {
   var L = S.items.filter(function (x) { return x.kind === S.kind; }), w = S.t === 'in' ? 'รับเข้า' : 'เบิก';
-  var opt = function (sel) { return '<option value="">— เลือกสินค้า —</option>' + CATS.map(function (c) { var l = L.filter(function (x) { return x.cat === c[0]; }); return l.length ? '<optgroup label="' + esc(c[1]) + '">' + l.map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? ' selected' : '') + '>' + esc(x.name) + (x.unit ? ' (' + esc(x.unit) + ')' : '') + '</option>'; }).join('') + '</optgroup>' : ''; }).join(''); };
+  // หมวดมาตรฐาน + หมวดที่เจ้าหน้าที่เพิ่มเอง (ชื่อหมวดคือค่า cat)
+  var cats = CATS.slice(); L.forEach(function (x) { if (x.cat && !cats.some(function (c) { return c[0] === x.cat; })) cats.push([x.cat, x.cat]); });
+  var opt = function (sel) { return '<option value="">— เลือกสินค้า —</option>' + cats.map(function (c) { var l = L.filter(function (x) { return x.cat === c[0]; }); return l.length ? '<optgroup label="' + esc(c[1]) + '">' + l.map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? ' selected' : '') + '>' + esc(x.name) + (x.unit ? ' (' + esc(x.unit) + ')' : '') + '</option>'; }).join('') + '</optgroup>' : ''; }).join(''); };
   var seg = function (id, o, v) { return '<div class="seg" id="' + id + '">' + o.map(function (x) { return '<button type="button" data-v="' + x[0] + '" class="' + (v === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
   $('app').innerHTML =
     '<div class="card"><h2>1 · ประเภทคำขอ</h2>' + seg('sT', [['out', '📤 เบิกสินค้า'], ['in', '📥 รับเข้าสินค้า']], S.t) + seg('sK', [['dom', 'DOM'], ['inter', 'INTER']], S.kind) +

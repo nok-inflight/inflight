@@ -1777,12 +1777,24 @@ function enterApp(d) {
   if (ME.role === 'inflight' && ME.zones && !ME.zones.some(z => z.id === 'purchasing')) { const i = ME.zones.findIndex(z => z.id === 'inflight'); ME.zones.splice(i + 1, 0, { id: 'purchasing', title: 'Procurement', desc: 'จัดซื้อ / สั่งสินค้า' }); }
   (ME.zones || []).forEach(z => { if (z.id === 'purchasing') { z.soon = false; z.title = 'Procurement'; z.desc = 'จัดซื้อ / สั่งสินค้า'; } });
   // ตรวจว่าหน้าเว็บกับ Apps Script เป็นเวอร์ชันเดียวกัน (หน้า GitHub เรียก Apps Script ผ่าน API_URL)
-  const verWarn = () => { if (!$('verWarn')) { const w = document.createElement('div'); w.id = 'verWarn'; w.className = 'imp warnbox'; w.style.margin = '8px 16px'; w.innerHTML = '<b>หน้าเว็บนี้เชื่อมกับ Apps Script เวอร์ชันเก่า</b> · เมนูหรือข้อมูลบางส่วนอาจไม่ขึ้น · ' + (IN_GAS ? 'ให้ Deploy → Manage deployments → ✏️ → New version' : 'ตรวจว่า API_URL ในไฟล์ index.html ตรงกับลิงก์ Web app ใน Deploy → Manage deployments และกด New version แล้ว'); $('shell').parentNode.insertBefore(w, $('shell')); } };
+  // แถบเตือนเวอร์ชัน: บอกชัดว่าเว็บต้องการเวอร์ชันไหน และ Apps Script ที่เชื่อมอยู่เป็นเวอร์ชันไหน
+  const verWarn = (kind, sv) => {
+    const old = $('verWarn'); if (old) old.remove();
+    const w = document.createElement('div'); w.id = 'verWarn'; w.className = 'imp warnbox'; w.style.margin = '8px 16px';
+    w.innerHTML = kind === 'net' ? '<b>เชื่อมต่อ Apps Script ไม่สำเร็จ</b> · อาจเป็นเพราะเน็ตช้า หรือ Apps Script กำลังเริ่มทำงาน · ลองรีเฟรชอีกครั้งในอีกสักครู่'
+      : '<b>หน้าเว็บต้องการ Apps Script เวอร์ชัน ' + esc(IO_NEED_VER) + ' แต่ที่เชื่อมอยู่เป็นเวอร์ชัน ' + esc(sv || 'เก่า') + '</b> · รีเฟรชหน้าเว็บไม่ช่วย ต้องอัปเดตที่ Apps Script: วางไฟล์ Inflight_Addon / Api / Code ตัวล่าสุด → บันทึก → Deploy → Manage deployments → ✏️ → Version: New version → Deploy' + (IN_GAS ? '' : ' (ถ้าทำแล้วยังขึ้น ตรวจว่า API_URL ใน index.html ตรงกับลิงก์ Web app)');
+    $('shell').parentNode.insertBefore(w, $('shell'));
+  };
   if (ON_GH && !d.offline) lsSet('io_off', { tk: d.token, me: d });
   setTimeout(() => { oqBadge(); if (!d.offline) oqFlush(); }, 2500);
   let cv = ''; try { if (localStorage.getItem('io_cat')) cv = localStorage.getItem('io_catv') || ''; } catch (e) { }
   BOOT = run('ioBoot', cv).catch(() => null); BOOT_CAT = BOOT; STAFF_AT = 0;
-  BOOT.then(b => { if (b && b.ver !== IO_NEED_VER && (ME.role === 'admin')) verWarn(); else if (!b && navigator.onLine && ME.role === 'admin') verWarn(); if ((!d.zones || d.zones.length < 2) && d.role !== 'guest') verWarn(); });
+  BOOT.then(b => {
+    if (b && b.ver !== IO_NEED_VER && ME.role === 'admin') verWarn('ver', b.ver);
+    // ioBoot ล้ม (มักเป็น Apps Script เริ่มทำงานช้า): ลองใหม่อีกครั้งก่อนเตือน
+    else if (!b && navigator.onLine && ME.role === 'admin') setTimeout(() => run('ioBoot', '').then(x => { if (x && x.ver !== IO_NEED_VER) verWarn('ver', x.ver); }).catch(() => verWarn('net')), 4000);
+    if ((!d.zones || d.zones.length < 2) && d.role !== 'guest') verWarn('ver', b && b.ver);
+  });
   CAT_DONE = false; CAT_READY = loadCatalog();
   asInit(); asShow(true);
   $('login').style.display = 'none';

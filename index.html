@@ -1187,7 +1187,7 @@
 </div>
 
 <div id="live">
-  <div id="liveBar">Chat · <span id="liveRoom"></span> · Online <b id="liveN">0</b></div>
+  <div id="liveBar">Chat · <span id="liveRoom"></span> · Online <b id="liveN">0</b><span id="liveAll"></span></div>
   <div id="liveBody">
     <div id="liveSel" style="display:none"><select id="liveCh"></select></div>
     <div id="liveOn"></div>
@@ -1652,6 +1652,9 @@ function renderOnline(l) {
   const label = DEPT_LABEL[CHAT_ROOM] || CHAT_ROOM;
   const mine = l.filter(u => u.dept === label);
   $('liveN').textContent = mine.length;
+  // ทั้งระบบ (ทุกห้อง) · แถบแชตนับเฉพาะห้องที่เปิดอยู่ ส่วนหน้าหลักนับทุกคน
+  window.ONLINE_ALL = l.length;
+  if ($('liveAll')) $('liveAll').textContent = l.length !== mine.length ? ' · ทั้งระบบ ' + l.length : '';
   Array.prototype.forEach.call($('liveCh').options, o => {
     const lb = o.dataset.name || '', n = l.filter(u => u.dept === lb).length;
     o.textContent = 'ห้อง ' + lb + ' · ออนไลน์ ' + n;
@@ -2157,7 +2160,7 @@ function homeTick() {
   const d = new Date(), p = n => String(n).padStart(2, '0');
   $('hClock').innerHTML = p(d.getHours()) + '<i>:</i>' + p(d.getMinutes()) + '<small>' + p(d.getSeconds()) + '</small>';
   $('hDate').textContent = homeDate(d);
-  const on = Number(($('liveN') && $('liveN').textContent) || 0);
+  const on = typeof window.ONLINE_ALL === 'number' ? window.ONLINE_ALL : Number(($('liveN') && $('liveN').textContent) || 0);
   const bell = Number(String(($('bellN') && $('bellN').textContent) || '0').replace('+', '')) || 0;
   let oq = 0;
   try { oq = typeof oqList === 'function' ? oqList().length : 0; } catch (e) { }
@@ -2187,7 +2190,7 @@ function showHome() {
     (ME.role === 'guest' ? '<div class="imp">บัญชีของคุณยังไม่ได้กำหนดกลุ่มการใช้งาน กรุณาแจ้งผู้ดูแลระบบ (ส่งข้อความในแชทมุมขวาล่างได้)</div>' : '') +
     (ME.mustChange ? '<div class="imp warn">คุณยังใช้รหัสผ่านเริ่มต้น (เลขพนักงาน) กรุณาเปลี่ยนที่เมนู บัญชีของฉัน</div>' : '') +
     '<div class="hstats">' +
-    '<div class="hs"><i>🟢</i><b id="hsOn"></b><span>' + T('ออนไลน์ตอนนี้') + '</span></div>' +
+    '<div class="hs" title="นับทุกคนที่เปิดเว็บอยู่ (ทุกหน่วยงาน)"><i>🟢</i><b id="hsOn"></b><span>' + T('ออนไลน์ตอนนี้') + '</span></div>' +
     '<div class="hs click" id="hsBellBox"><i>🔔</i><b id="hsBell"></b><span>' + T('แจ้งเตือนใหม่') + '</span></div>' +
     '<div class="hs" id="hsOqBox"><i>📤</i><b id="hsOq"></b><span>' + T('รอส่ง (ออฟไลน์)') + '</span></div>' +
     '</div>' +

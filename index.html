@@ -304,6 +304,7 @@
   .phtiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 10px; margin-top: 12px; }
   .phtile { display: flex; flex-direction: column; align-items: flex-start; gap: 6px; padding: 14px; text-align: left; border-radius: 12px; background: rgba(255,202,8,.1); color: inherit; border: 1px solid rgba(138,109,47,.3); margin: 0; }
   .phtile span { font-size: 26px; } .phtile:hover { background: rgba(255,202,8,.22); }
+  .fmssronly { margin-top: 10px; }
   .stkscroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
   .stkcat { margin: 10px 0; } .stkcat > b { font-size: 15px; }
   table.stkt { border-collapse: collapse; width: 100%; margin-top: 6px; font-size: 13px; }
@@ -6537,6 +6538,8 @@ function fmUpShow() {
       rel();
       toast('บันทึกไฟล์แล้ว ' + ok.length + ' ไฟล์', true);
       const crew = ok.filter(x => x.p.kind === 'crew')[0];
+      // อัปโหลด SSR แล้วเปิดแท็บ "SSR รายเที่ยวบิน" ให้ดูยอดทันที
+      if (ok.some(x => x.p.kind === 'ssr')) { FM.tab = 'ssr'; setTimeout(() => toast(FM.model ? 'เปิดแท็บ SSR รายเที่ยวบินให้แล้ว · ตาราง DOM / INTER อยู่ที่แท็บด้านบน' : 'แสดงยอด SSR รายเที่ยวบินด้านล่างแล้ว', true), 1500); }
       if (crew && crew.p.date !== $('fmDate').value) { FM.dirty = false; $('fmDate').value = crew.p.date; }
       const day = $('fmDate').value;
       const hit = ok.some(x => x.p.date === day || (x.p.kind === 'ssr' && x.p.date === fmAddDay(day, 1)));
@@ -6957,12 +6960,25 @@ function fmColsHtml(m, can) {
     '<div class="mhwrap">' + grp('dom') + grp('inter') + '</div>' +
     '<div class="hint" style="margin-top:6px">กด "บันทึกตาราง" แล้วระบบจำชุดคอลัมน์ (และเมนู MH00 ที่เลือก) ไว้ใช้กับวันใหม่ต่อไปอัตโนมัติ · อยากเปลี่ยนก็เลือกใหม่แล้วบันทึกอีกครั้ง</div></details>';
 }
+// ยอดจากไฟล์ SSR ของเมนู (รหัส) นี้ในแถวนี้ · ใช้ตอนเพิ่มคอลัมน์ใหม่ / ติ๊กคอลัมน์กลับมา (ไม่ต้องสร้างตารางใหม่)
+// MH00 ที่มีหลายเมนู: ใส่ให้เฉพาะเมื่อไม่มีคอลัมน์รหัสเดียวกันอื่นในตาราง (ยอด MH00 อยู่ที่เมนูที่เลือกไว้แล้ว)
+function fmSsrQty(r, col, want, ni, kind) {
+  const d = FM.d || {}, src = r.nd ? d.ssrN && d.ssrN.data : d.ssr && d.ssr.data;
+  if (!src || !src.p || !col || !col.code) return 0;
+  if (want.some((c, i) => i !== ni && c.code === col.code)) return 0;
+  const cnt = src.p[fmNum(r.f)] || {}, code = String(col.code).toUpperCase();
+  const alias = {};
+  String((FM.cfg && FM.cfg.alias) || '').split(',').forEach(x => { const m = x.split('='); if (m.length === 2) alias[m[0].trim().toUpperCase()] = m[1].split('+').map(s => s.trim().toUpperCase()).filter(s => s); });
+  let q = 0;
+  Object.keys(cnt).forEach(svc => { const t = alias[svc] || [svc]; if (t.indexOf(code) >= 0) q += Number(cnt[svc]) || 0; });
+  return q;
+}
 function fmColsApply(kind, want) {
   const m = FM.model, cur = m.cfg[kind] || [], curK = {};
   cur.forEach((c, i) => { curK[fmColKey(c)] = i; });
   const wantK = {};
   want.forEach(c => { wantK[fmColKey(c)] = 1; });
-  let lost = 0;
+  let lost = 0, filled = 0;
   cur.forEach((c, i) => { if (!wantK[fmColKey(c)]) lost += fmColQty(kind, i); });
   m.hid = m.hid || {};
   m.hid[kind] = (m.hid[kind] || []).filter(c => !wantK[fmColKey(c)]);
@@ -6975,7 +6991,7 @@ function fmColsApply(kind, want) {
     cur.forEach((c, i) => { if (!wantK[fmColKey(c)] && Number(r.q[i])) qh[fmColKey(c)] = r.q[i]; });
     map.forEach((o, ni) => {
       if (o !== undefined && r.q[o] !== undefined) q[ni] = r.q[o];
-      else if (o === undefined) { const k = fmColKey(want[ni]); if (qh[k] !== undefined) { q[ni] = qh[k]; delete qh[k]; } }
+      else if (o === undefined) { const k = fmColKey(want[ni]); if (qh[k] !== undefined) { q[ni] = qh[k]; delete qh[k]; } else { const v = fmSsrQty(r, want[ni], want, ni, kind); if (v) { q[ni] = v; filled += v; } } }
     });
     r.q = q;
     if (Object.keys(qh).length) r.qh = qh; else delete r.qh;
@@ -6984,6 +7000,11 @@ function fmColsApply(kind, want) {
   m.colsCustom = 1;
   FM.dirty = true;
   if (lost) toast('ซ่อนคอลัมน์แล้ว · ยอด ' + lost + ' ชุดเก็บไว้ ติ๊กกลับมาจะคืนยอดให้', true);
+  if (filled) {
+    toast('ดึงยอดจากไฟล์ SSR ใส่คอลัมน์ใหม่แล้ว ' + filled + ' ชุด', true);
+    const codes = {}; want.forEach((c, i) => { if (!cur.some(x => fmColKey(x) === fmColKey(c))) codes[c.code] = 1; });
+    m.warn = (m.warn || []).filter(w => !Object.keys(codes).some(cd => w.indexOf(cd + ' ') === 0 && /ไม่มีคอลัมน์ในตาราง/.test(w)));
+  }
   return true;
 }
 function fmColsBind() {
@@ -7123,6 +7144,11 @@ function fmSsrOne(o, title, info) {
   h += '<tr class="tot"><td colspan="5">รวม ' + nums.length + ' เที่ยวบิน</td>' + tot.map(v => '<td class="r">' + v + '</td>').join('') + '<td class="r">' + tot.reduce((a, b) => a + b, 0) + '</td><td></td></tr></tbody></table>';
   return '<h5 style="margin:10px 0 4px">' + esc(title) + ' <small class="hint">' + esc(o.file || '') + (o.at ? ' · ' + esc(o.by || '') + ' ' + esc(o.at) : '') + '</small></h5><div class="xscroll">' + h + '</div>';
 }
+// แสดงตาราง SSR รายเที่ยวบินลงในกล่องที่กำหนด (ใช้ทั้งแท็บ SSR และตอนยังไม่มี Crewlist)
+function fmSsrShow(box) {
+  box.innerHTML = fmSsrHtml(); $('fmSsrX').onclick = fmSsrExcel;
+  each('#' + box.id + ' th.ssrsk', t => { t.onclick = () => { const k = t.dataset.sk, o = FM.ssrSort || { k: 'num', d: 1 }; FM.ssrSort = { k: k, d: o.k === k ? -o.d : (k === 'num' || k === 'rt' || k === 'reg' || k === 'std' || k === 'kind' ? 1 : -1) }; fmRender(); }; });
+}
 function fmSsrHtml() {
   const d = FM.d || {}, m = FM.model, info = {};
   if (m) ['dom', 'inter'].forEach(k => (m[k] || []).forEach(b => (b.rows || []).forEach(r => { const n = fmNum(r.f); if (n && !info[n]) info[n] = { reg: b.reg || '', std: r.std || '', kind: k.toUpperCase() }; })));
@@ -7161,6 +7187,11 @@ function fmRender() {
     $('fmBody').innerHTML = '<div class="fmdays" id="fmDays"></div><p class="hint">ยังไม่มีข้อมูลของวันที่ ' + esc(FM.date) + (can ? ' · กด "อัปโหลดไฟล์" แล้วเลือกไฟล์ SSR (SAO-O-NMR007) ของวันนี้และวันถัดไป กับไฟล์ Crewlist พร้อมกันได้เลย · ถ้าไม่มี Crewlist ใช้ไฟล์ NOK DD แทนได้ · ถ้าไม่มีทั้งสองไฟล์ ให้อัปโหลดไฟล์ SKED ระบบจะสร้างตารางจาก SKED ให้' : '') + '</p>' +
       (can ? '<button class="sec" id="fmBlank">สร้างตารางเปล่า (กรอกเอง)</button>' : '');
     fmDaysBar();
+    if (d.ssr || d.ssrN) {
+      const sb = document.createElement('div'); sb.id = 'fmSsrOnly'; sb.className = 'fmssronly';
+      $('fmBody').appendChild(sb); fmSsrShow(sb);
+      sb.insertAdjacentHTML('afterbegin', '<h4 style="margin:10px 0 4px">SSR รายเที่ยวบิน</h4><p class="hint" style="margin:0 0 6px">ยังไม่มี Crewlist ของวันนี้ · อัปโหลด Crewlist เพื่อสร้างตาราง DOM / INTER</p>');
+    }
     if ($('fmBlank')) $('fmBlank').onclick = () => {
       FM.model = fmBuild({ date: FM.date, groups: [] }, d.ssr && d.ssr.data, d.ssrN && d.ssrN.data, FM.cfg, []);
       FM.model.warn = []; FM.dirty = true; FM.blank = true; fmRender();
@@ -7208,11 +7239,7 @@ function fmRender() {
     await fmBuildNow(); FM.dirty = true; fmRender();
   };
   if (FM.tab === 'pre') { fmPreView(); return; }
-  if (FM.tab === 'ssr') {
-    $('fmGrid').innerHTML = fmSsrHtml(); $('fmSsrX').onclick = fmSsrExcel;
-    each('#fmGrid th.ssrsk', t => { t.onclick = () => { const k = t.dataset.sk, o = FM.ssrSort || { k: 'num', d: 1 }; FM.ssrSort = { k: k, d: o.k === k ? -o.d : (k === 'num' || k === 'rt' || k === 'reg' || k === 'std' || k === 'kind' ? 1 : -1) }; fmRender(); }; });
-    return;
-  }
+  if (FM.tab === 'ssr') { fmSsrShow($('fmGrid')); return; }
   if (FM.tab === 'sheet') {
     const avail = Math.max(320, ($('fmGrid').clientWidth || 900) - 24);
     $('fmGrid').innerHTML = (m.rev ? '<div class="hint">ไฟล์นี้มีชีทฉบับแก้ไข REV.' + m.rev.n + ' · ช่องที่เปลี่ยนจากฉบับก่อนเป็นสีแดง</div>' : '') + '<div class="xscroll fmsheet">' + fmSheetList(m).reverse().map(x => {

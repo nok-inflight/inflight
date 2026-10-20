@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#8a6d2f">
+<title>เบิกสินค้า Nok Air</title>
+<style>
+:root { --bg: #f4efe2; --card: #fff; --ink: #2b2416; --mut: #7a6e55; --line: #e2d6b5; --gold: #8a6d2f; --gold2: #a07800; --yel: #ffca08; --red: #c62828; --ok: #2e7d32; }
+@media (prefers-color-scheme: dark) { :root { --bg: #15130f; --card: #221f18; --ink: #f1e8d0; --mut: #b4a785; --line: #3e3829; --gold2: #e6c66a; } }
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, "Segoe UI", Tahoma, sans-serif; }
+header { background: linear-gradient(135deg, #8a6d2f, #c9a227 70%, #ffca08); color: #fff; padding: 18px 16px 20px; position: relative; overflow: hidden; }
+header h1 { margin: 0; font-size: 23px; text-shadow: 0 1px 2px rgba(0,0,0,.25); } header p { margin: 4px 0 0; font-size: 13px; opacity: .95; }
+header .ico { position: absolute; right: 14px; top: 12px; font-size: 38px; }
+main { max-width: 640px; margin: 0 auto; padding: 12px 14px 60px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin: 12px 0; box-shadow: 0 2px 8px rgba(0,0,0,.05); }
+.card h2 { margin: 0 0 10px; font-size: 16px; color: var(--gold2); }
+label { display: block; font-size: 13px; font-weight: 700; margin: 10px 0 4px; } label .req { color: var(--red); }
+input, select, textarea { width: 100%; font: inherit; color: var(--ink); background: var(--bg); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+textarea { resize: vertical; }
+button { font: inherit; border: 0; border-radius: 10px; padding: 10px 14px; background: var(--gold); color: #fff; font-weight: 700; cursor: pointer; }
+button.sec { background: #8b8270; } button:disabled { opacity: .6; }
+.seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--gold); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
+.seg button { border-radius: 0; background: transparent; color: var(--ink); font-weight: 600; padding: 11px; }
+.seg button.on { background: var(--gold); color: #fff; }
+.row { display: grid; grid-template-columns: minmax(0, 1fr) 92px 44px; gap: 6px; margin-bottom: 8px; } .row button { padding: 8px; }
+.ph { display: flex; gap: 10px; align-items: center; margin-top: 10px; min-height: 40px; } .ph img { width: 130px; height: 100px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
+.btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.go { width: 100%; padding: 14px; font-size: 17px; margin-top: 4px; }
+.hint { color: var(--mut); font-size: 13px; }
+.ok { text-align: center; } .ok .big { font-size: 52px; } .no { font-size: 34px; font-weight: 800; color: var(--gold2); letter-spacing: 1px; margin: 6px 0 10px; }
+#toast { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); background: #333; color: #fff; padding: 10px 16px; border-radius: 10px; font-size: 14px; max-width: 92vw; z-index: 9; display: none; }
+#toast.err { background: var(--red); } #toast.okc { background: var(--ok); }
+#busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 8; color: #fff; font-weight: 700; }
+details summary { cursor: pointer; font-weight: 700; color: var(--gold2); }
+.st { margin-top: 8px; font-size: 14px; }
+</style>
+</head>
+<body>
+<header><span class="ico">📦</span><h1>เบิกสินค้า Nok Air</h1><p>แบบฟอร์มคำขอเบิก / รับเข้าสินค้า · เจ้าหน้าที่ Inflight จะตรวจและอนุมัติ</p></header>
+<main id="app"><div class="card"><span class="hint">กำลังโหลดรายการสินค้า...</span></div></main>
+<div id="toast"></div><div id="busy"><span id="busyT">กำลังส่ง...</span></div>
+<script>
+// แบบฟอร์มสาธารณะ (ไม่ต้องล็อกอิน) · ส่งคำขอเข้า Inflight › Stock สินค้า › คำขอเบิก
+var API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
+var CATS = [['crew', 'ของใช้ลูกเรือ'], ['cabin', 'ของใช้บนเครื่อง'], ['fb', 'F&B'], ['mer', 'MERCHANDISE']];
+var S = { items: [], t: 'out', kind: 'dom', rows: [{ id: '', q: '' }], photo: null, d: '', note: '', name: '', dept: '', tel: '' };
+function $(id) { return document.getElementById(id); }
+function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
+var tT;
+function toast(t, ok) { var b = $('toast'); b.textContent = t; b.className = ok ? 'okc' : 'err'; b.style.display = 'block'; clearTimeout(tT); tT = setTimeout(function () { b.style.display = 'none'; }, 4000); }
+function busy(on, t) { $('busy').style.display = on ? 'flex' : 'none'; if (t) $('busyT').textContent = t; }
+async function api(fn, args) {
+  var ctl = new AbortController(), tm = setTimeout(function () { ctl.abort(); }, 90000);
+  try {
+    var r = await fetch(API_URL, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: fn, args: args }), signal: ctl.signal });
+    var j = await r.json();
+    if (!j.ok) throw new Error(j.error || 'เกิดข้อผิดพลาด');
+    return j.result;
+  } catch (e) { if (e.name === 'AbortError') throw new Error('เซิร์ฟเวอร์ตอบช้าเกินไป ลองใหม่อีกครั้ง'); if (e instanceof TypeError) throw new Error('เชื่อมต่อไม่ได้ ตรวจสอบอินเทอร์เน็ต'); throw e; }
+  finally { clearTimeout(tm); }
+}
+// ย่อรูปก่อนส่ง (รูปจริง ≤ 1280px + รูปย่อ 200px)
+function shrink(file, max, q) {
+  return new Promise(function (ok, ko) {
+    var r = new FileReader();
+    r.onload = function () { var im = new Image(); im.onload = function () { var s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); ok(c.toDataURL('image/jpeg', q)); }; im.onerror = function () { ko(new Error('เปิดรูปไม่ได้')); }; im.src = r.result; };
+    r.onerror = function () { ko(new Error('อ่านไฟล์ไม่ได้')); }; r.readAsDataURL(file);
+  });
+}
+function keep() {
+  if (!$('fD')) return;
+  S.d = $('fD').value; S.note = $('fN').value; S.name = $('fName').value; S.dept = $('fDept').value; S.tel = $('fTel').value;
+  Array.prototype.forEach.call(document.querySelectorAll('.fI'), function (x) { S.rows[x.dataset.i].id = x.value; });
+  Array.prototype.forEach.call(document.querySelectorAll('.fQ'), function (x) { S.rows[x.dataset.i].q = x.value; });
+}
+function draw() {
+  var L = S.items.filter(function (x) { return x.kind === S.kind; }), w = S.t === 'in' ? 'รับเข้า' : 'เบิก';
+  var opt = function (sel) { return '<option value="">— เลือกสินค้า —</option>' + CATS.map(function (c) { var l = L.filter(function (x) { return x.cat === c[0]; }); return l.length ? '<optgroup label="' + esc(c[1]) + '">' + l.map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? ' selected' : '') + '>' + esc(x.name) + (x.unit ? ' (' + esc(x.unit) + ')' : '') + '</option>'; }).join('') + '</optgroup>' : ''; }).join(''); };
+  var seg = function (id, o, v) { return '<div class="seg" id="' + id + '">' + o.map(function (x) { return '<button type="button" data-v="' + x[0] + '" class="' + (v === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
+  $('app').innerHTML =
+    '<div class="card"><h2>1 · ประเภทคำขอ</h2>' + seg('sT', [['out', '📤 เบิกสินค้า'], ['in', '📥 รับเข้าสินค้า']], S.t) + seg('sK', [['dom', 'DOM'], ['inter', 'INTER']], S.kind) +
+    '<label>วันที่' + w + ' <span class="req">*</span></label><input type="date" id="fD" value="' + (S.d || today()) + '"></div>' +
+    '<div class="card"><h2>2 · รายการสินค้าที่' + w + '</h2>' + (L.length ? S.rows.map(function (r, i) { return '<div class="row"><select class="fI" data-i="' + i + '">' + opt(r.id) + '</select><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" placeholder="จำนวน" value="' + esc(r.q) + '">' + (S.rows.length > 1 ? '<button type="button" class="sec fX" data-i="' + i + '">✕</button>' : '<span></span>') + '</div>'; }).join('') +
+      '<button type="button" class="sec" id="bAdd">+ เพิ่มรายการ</button>' : '<span class="hint">ยังไม่มีรายการสินค้าของ ' + S.kind.toUpperCase() + '</span>') +
+    '<label>รายละเอียด / หมายเหตุ</label><textarea id="fN" rows="2" placeholder="เช่น ใช้สำหรับเที่ยวบิน DD123">' + esc(S.note) + '</textarea></div>' +
+    '<div class="card"><h2>3 · ข้อมูลผู้' + w + '</h2><label>ชื่อ - นามสกุล <span class="req">*</span></label><input id="fName" autocomplete="name" value="' + esc(S.name) + '">' +
+    '<label>หน่วยงาน <span class="req">*</span></label><input id="fDept" value="' + esc(S.dept) + '"><label>เบอร์โทร</label><input id="fTel" inputmode="tel" value="' + esc(S.tel) + '"></div>' +
+    '<div class="card"><h2>4 · รูปภาพ <span class="req">* บังคับ</span></h2><div class="btns"><button type="button" id="bCam">📷 ถ่ายรูป</button><button type="button" class="sec" id="bPic">🖼 เลือกรูป</button></div>' +
+    '<input type="file" id="f1" accept="image/*" capture="environment" hidden><input type="file" id="f2" accept="image/*" hidden>' +
+    '<div class="ph">' + (S.photo ? '<img src="' + S.photo.thumb + '" alt=""><button type="button" class="sec" id="bPx">ลบรูป</button>' : '<span class="hint">ถ่ายรูปสินค้าที่' + w + ' หรือเอกสารประกอบ</span>') + '</div></div>' +
+    '<button class="go" id="bGo">ส่งคำขอ' + w + '</button>' +
+    '<div class="card"><details><summary>ตรวจสถานะคำขอ</summary><label>เลขคำขอ</label><input id="fNo" placeholder="เช่น R261020-001"><button type="button" class="sec" id="bChk" style="margin-top:8px">ตรวจสถานะ</button><div class="st" id="stOut"></div></details></div>';
+  Array.prototype.forEach.call(document.querySelectorAll('#sT button'), function (b) { b.onclick = function () { keep(); S.t = b.dataset.v; draw(); }; });
+  Array.prototype.forEach.call(document.querySelectorAll('#sK button'), function (b) { b.onclick = function () { keep(); if (S.kind !== b.dataset.v) S.rows = [{ id: '', q: '' }]; S.kind = b.dataset.v; draw(); }; });
+  if ($('bAdd')) $('bAdd').onclick = function () { keep(); S.rows.push({ id: '', q: '' }); draw(); };
+  Array.prototype.forEach.call(document.querySelectorAll('.fX'), function (b) { b.onclick = function () { keep(); S.rows.splice(Number(b.dataset.i), 1); draw(); }; });
+  var pick = async function (inp) {
+    var f = inp.files[0]; inp.value = ''; if (!f) return; keep();
+    if (!/^image\//.test(f.type)) { toast('ไฟล์ต้องเป็นรูปภาพ'); return; }
+    try { busy(true, 'กำลังเตรียมรูป...'); var big = await shrink(f, 1280, 0.8), th = await shrink(f, 200, 0.6); S.photo = { mime: 'image/jpeg', b64: big.split(',')[1], thumb: th }; draw(); } catch (e) { toast(e.message); } finally { busy(false); }
+  };
+  $('bCam').onclick = function () { $('f1').click(); }; $('bPic').onclick = function () { $('f2').click(); };
+  $('f1').onchange = function () { pick($('f1')); }; $('f2').onchange = function () { pick($('f2')); };
+  if ($('bPx')) $('bPx').onclick = function () { keep(); S.photo = null; draw(); };
+  $('bChk').onclick = async function () {
+    try { busy(true, 'กำลังตรวจ...'); var r = await api('ioPubIStockStatus', [$('fNo').value]); var st = { pending: '⏳ รออนุมัติ', approved: '✅ อนุมัติแล้ว', rejected: '❌ ไม่อนุมัติ' }[r.status] || r.status; $('stOut').innerHTML = '<b>' + esc(r.no) + '</b> · ' + st + (r.reason ? ' · ' + esc(r.reason) : '') + (r.decAt ? ' · ' + esc(r.decAt.slice(0, 16)) : ''); }
+    catch (e) { $('stOut').textContent = e.message; } finally { busy(false); }
+  };
+  $('bGo').onclick = async function () {
+    keep();
+    var items = S.rows.filter(function (r) { return r.id && Number(r.q) > 0; }).map(function (r) { return { id: r.id, q: Math.floor(Number(r.q)) }; });
+    if (!items.length) { toast('เลือกสินค้าและใส่จำนวนอย่างน้อย 1 รายการ'); return; }
+    if (S.name.trim().length < 3) { toast('ใส่ชื่อ - นามสกุล'); $('fName').focus(); return; }
+    if (!S.dept.trim()) { toast('ใส่หน่วยงาน'); $('fDept').focus(); return; }
+    if (!S.photo) { toast('ต้องแนบรูปหรือถ่ายรูปก่อนส่ง'); return; }
+    $('bGo').disabled = true;
+    try {
+      busy(true, 'กำลังส่งคำขอและอัปโหลดรูป...');
+      var r = await api('ioPubIStockReq', [{ kind: S.kind, t: S.t, d: S.d, items: items, name: S.name, dept: S.dept, phone: S.tel, note: S.note }, S.photo]);
+      window.scrollTo(0, 0);
+      $('app').innerHTML = '<div class="card ok"><div class="big">✅</div><h2>ส่งคำขอแล้ว</h2><div class="hint">เลขคำขอ</div><div class="no">' + esc(r.no) + '</div><p class="hint">จดเลขนี้ไว้ตรวจสถานะ · เจ้าหน้าที่ Inflight จะตรวจและอนุมัติ</p><button id="bNew">ส่งคำขอใหม่</button></div>';
+      $('bNew').onclick = function () { S.rows = [{ id: '', q: '' }]; S.photo = null; S.note = ''; draw(); };
+    } catch (e) { toast(e.message); if ($('bGo')) $('bGo').disabled = false; } finally { busy(false); }
+  };
+}
+(async function () {
+  try { S.items = await api('ioPubIStockItems', []); draw(); }
+  catch (e) { $('app').innerHTML = '<div class="card"><b>เปิดแบบฟอร์มไม่ได้</b><p class="hint">' + esc(/ไม่อนุญาต|ไม่พบฟังก์ชัน/.test(e.message) ? 'ระบบยังไม่พร้อม (ต้องอัปเดต Apps Script)' : e.message) + '</p><button onclick="location.reload()">ลองใหม่</button></div>'; }
+})();
+</script>
+</body>
+</html>

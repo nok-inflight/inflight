@@ -3411,7 +3411,7 @@ const STK_CATS = [['crew', 'ของใช้ลูกเรือ'], ['cabin',
 const STK_LV = { g: 60, r: 20 };
 let STK = null, STK_K = 'dom', STK_V = { kind: '', cat: '', show: 'all' }, STK_SUB = 'stock', STK_RQ = 'pending';
 let STK_R = { from: '', to: '', auto: true, q: '' }, STK_TH = {};
-const REQ_URL = 'https://nok-inflight.github.io/inflight/?app=req';
+const REQ_URL = 'https://nok-inflight.github.io/inflight/request.html';
 const stkErr = e => /ไม่อนุญาตให้เรียกฟังก์ชัน|ไม่พบฟังก์ชัน/.test(String(e && e.message)) ? 'ต้องอัปเดตไฟล์ Inflight_Addon / Api ใน Apps Script ก่อน (Stock สินค้า)' : e.message;
 async function stkFetch() { STK = await run('ioIStockGet'); STK.items = STK.items || []; STK.tx = STK.tx || []; STK.reqs = STK.reqs || []; return STK; }
 function stkLoad() { return STK || { items: [], tx: [], reqs: [] }; }
@@ -11145,7 +11145,8 @@ $('bOut').onclick = async () => {
   showLogin();
 };
 (async function init() {
-  if (APP_REQ) { showReqPage(); return; }
+  // ลิงก์เก่า ?app=req → แบบฟอร์มแยก request.html (ไม่ต้องล็อกอิน)
+  if (APP_REQ) { if (ON_GH) { location.replace('request.html'); return; } showReqPage(); return; }
   const off = ON_GH ? lsGet('io_off', null) : null;
   const tk = load_('tk') || (off && off.tk);
   if (tk) {

@@ -3575,7 +3575,7 @@ function stkStockHtml() {
   if (can) h += '<details class="imp" id="stkItBox"' + (!STK.items.length || window.__stkItOpen ? ' open' : '') + '><summary><b>+ เพิ่ม / แก้ไขสินค้า (' + STK_K.toUpperCase() + ')</b></summary><div class="dd qtform">' +
     '<label>สินค้าเดิม<select id="siSel"><option value="">— เพิ่มสินค้าใหม่ —</option>' + STK.items.filter(it => it.kind === STK_K).map(it => '<option value="' + it.id + '">' + esc((it.sku ? it.sku + ' · ' : '') + it.name) + '</option>').join('') + '</select></label>' +
     '<label>หมวด<select id="siCat">' + stkCats().map(c => '<option value="' + esc(c[0]) + '">' + esc(c[1]) + '</option>').join('') + otherOpt('อื่นๆ (เพิ่มหมวดใหม่)') + '</select></label>' +
-    '<label>SKU<input id="siSku" style="width:120px"></label><label style="flex:2;min-width:180px">ชื่อสินค้า<input id="siName"></label><label>หน่วย<input id="siUnit" style="width:100px"></label>' +
+    '<label>รหัสสินค้า<input id="siSku" style="width:120px"></label><label style="flex:2;min-width:180px">ชื่อสินค้า<input id="siName"></label><label>หน่วย<input id="siUnit" style="width:100px"></label>' +
     '<label>ยอดเต็ม<input type="number" min="0" id="siFull" style="width:100px" title="ใช้คิด % สถานะ"></label><button id="siGo">บันทึกสินค้า</button><button class="sec" id="siDel" style="display:none">ลบสินค้า</button></div>' +
     '<div class="hint">ยอดเต็ม = จำนวนที่ถือว่า "เต็ม" ใช้คิด % สถานะ · ยอดคงเหลือเปลี่ยนจากหน้า "รับสินค้า - สินค้าออก"</div></details>';
   stkCats().forEach(cg => {
@@ -3587,7 +3587,7 @@ function stkStockHtml() {
       h += '<div class="stkscroll"><table class="stkt"><colgroup>' + ['26%', '9%', '9%', '9%', '9%', '9%', '17%', '12%'].map(w => '<col style="width:' + w + '">').join('') + '</colgroup><thead><tr><th>รายการ</th><th>หน่วย</th><th class="r">รับเข้า</th><th class="r">เบิกออก</th><th class="r">คงเหลือ</th><th class="r">ยอดเต็ม</th><th>สถานะ</th><th></th></tr></thead><tbody>';
       list.forEach(it => {
         const c = stkCalc(it);
-        h += '<tr class="lv-' + c.lv + '" data-it="' + it.id + '"><td class="wrap"><b>' + esc(it.name) + '</b>' + (it.sku ? '<br><small class="hint">SKU ' + esc(it.sku) + '</small>' : '') + '</td><td>' + esc(it.unit) + '</td><td class="r">' + c.in + '</td><td class="r">' + c.out + '</td><td class="r"><b>' + c.bal + '</b></td><td class="r">' + c.full + '</td><td>' + stkPill(c) + '</td><td class="r">' +
+        h += '<tr class="lv-' + c.lv + '" data-it="' + it.id + '"><td class="wrap"><b>' + esc(it.name) + '</b>' + (it.sku ? '<br><small class="hint">รหัสสินค้า ' + esc(it.sku) + '</small>' : '') + '</td><td>' + esc(it.unit) + '</td><td class="r">' + c.in + '</td><td class="r">' + c.out + '</td><td class="r"><b>' + c.bal + '</b></td><td class="r">' + c.full + '</td><td>' + stkPill(c) + '</td><td class="r">' +
           (c.lv === 'r' ? '<a href="#" class="stkOrd" data-id="' + it.id + '">สั่งสินค้า →</a>' : '') + '</td></tr>';
       });
       h += '</tbody></table></div>';

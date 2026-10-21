@@ -3560,7 +3560,7 @@ function stkStockHtml() {
   if (can) h += '<details class="imp" id="stkItBox"' + (!STK.items.length || window.__stkItOpen ? ' open' : '') + '><summary><b>+ เพิ่ม / แก้ไขสินค้า (' + STK_K.toUpperCase() + ')</b></summary><div class="dd qtform">' +
     '<label>สินค้าเดิม<select id="siSel"><option value="">— เพิ่มสินค้าใหม่ —</option>' + STK.items.filter(it => it.kind === STK_K).map(it => '<option value="' + it.id + '">' + esc((it.sku ? it.sku + ' · ' : '') + it.name) + '</option>').join('') + '</select></label>' +
     '<label>หมวด<select id="siCat">' + stkCats().map(c => '<option value="' + esc(c[0]) + '">' + esc(c[1]) + '</option>').join('') + otherOpt('อื่นๆ (เพิ่มหมวดใหม่)') + '</select></label>' +
-    '<label>SKU<input id="siSku" placeholder="รหัสสินค้า" style="width:120px"></label><label style="flex:2;min-width:180px">ชื่อสินค้า<input id="siName"></label><label>หน่วย<input id="siUnit" placeholder="ขวด / แพ็ค" style="width:100px"></label>' +
+    '<label>SKU<input id="siSku" style="width:120px"></label><label style="flex:2;min-width:180px">ชื่อสินค้า<input id="siName"></label><label>หน่วย<input id="siUnit" style="width:100px"></label>' +
     '<label>ยอดเต็ม<input type="number" min="0" id="siFull" style="width:100px" title="ใช้คิด % สถานะ"></label><button id="siGo">บันทึกสินค้า</button><button class="sec" id="siDel" style="display:none">ลบสินค้า</button></div>' +
     '<div class="hint">ยอดเต็ม = จำนวนที่ถือว่า "เต็ม" ใช้คิด % สถานะ · ยอดคงเหลือเปลี่ยนจากหน้า "รับสินค้า - สินค้าออก"</div></details>';
   stkCats().forEach(cg => {
@@ -3585,7 +3585,7 @@ function stkStockBind(draw) {
   each('.stkOrd', a => { a.onclick = e => { e.preventDefault(); stkGoOrder(a.dataset.id); }; });
   if (!$('siGo')) return;
   $('stkItBox').ontoggle = () => { window.__stkItOpen = $('stkItBox').open; };
-  otherBind('siCat', 'ชื่อหมวดใหม่ เช่น หมวก / ของ BAC');
+  otherBind('siCat', 'พิมพ์ชื่อหมวดใหม่');
   $('siSel').onchange = () => { const it = STK.items.filter(x => x.id === $('siSel').value)[0]; $('siName').value = it ? it.name : ''; $('siSku').value = it ? it.sku || '' : ''; $('siUnit').value = it ? it.unit : ''; $('siFull').value = it ? it.full : ''; if (it) { $('siCat').value = it.cat; $('siCat').dispatchEvent(new Event('change')); } $('siDel').style.display = it ? '' : 'none'; };
   $('siGo').onclick = async () => {
     const o = { id: $('siSel').value, kind: STK_K, cat: otherVal('siCat'), sku: $('siSku').value.trim(), name: $('siName').value.trim(), unit: $('siUnit').value.trim(), full: $('siFull').value };
@@ -3682,7 +3682,7 @@ function stkReqHtml() {
       '<div class="qtch"><b>' + esc(r.no) + ' · ' + (r.t === 'in' ? 'รับเข้า' : 'เบิก') + ' ' + esc(r.kind.toUpperCase()) + '</b><span class="qtst ' + st[1] + '">' + st[0] + '</span></div>' +
       '<div class="hint">วันที่' + (r.t === 'in' ? 'รับเข้า' : 'เบิก') + ' ' + esc(dmy(r.d)) + ' · ส่งเมื่อ ' + esc(r.at.slice(0, 16)) + '</div>' +
       '<div><b>' + esc(r.name) + '</b> · ' + esc(r.dept) + (r.phone ? ' · ☎ ' + esc(r.phone) : '') + '</div>' +
-      '<ul class="rqitems">' + r.items.map(x => { const it = STK.items.filter(y => y.id === x.id)[0], c = it ? stkCalc(it) : null; return '<li>' + (x.new ? '<span class="qtst doing">🆕 สินค้าใหม่</span> ' : '') + (x.sku ? '<small class="hint">' + esc(x.sku) + '</small> ' : '') + esc(x.name) + ' <b>× ' + x.q + '</b> ' + esc(x.unit || '') + (x.new && x.cat ? ' <small class="hint">· หมวด ' + esc(stkCatName(x.cat)) + '</small>' : '') + (c && r.status === 'pending' ? ' <small class="hint">(คงเหลือ ' + c.bal + ')</small>' : '') + (x.new && r.status === 'pending' ? ' <small class="hint">(อนุมัติแล้วเพิ่มเป็นสินค้าใหม่)</small>' : ''); }).join('') + '</ul>' +
+      '<ul class="rqitems">' + r.items.map(x => { const it = STK.items.filter(y => y.id === x.id)[0], c = it ? stkCalc(it) : null; return '<li>' + (x.new ? '<span class="qtst doing">🆕 ' + (r.t === 'in' ? 'สินค้าใหม่' : 'ไม่มีในรายการ') + '</span> ' : '') + (x.sku ? '<small class="hint">' + esc(x.sku) + '</small> ' : '') + esc(x.name) + ' <b>× ' + x.q + '</b> ' + esc(x.unit || '') + (x.new && x.cat ? ' <small class="hint">· หมวด ' + esc(stkCatName(x.cat)) + '</small>' : '') + (c && r.status === 'pending' ? ' <small class="hint">(คงเหลือ ' + c.bal + ')</small>' : '') + (x.new && r.status === 'pending' ? ' <small class="hint">(' + (r.t === 'in' ? 'อนุมัติแล้วเพิ่มเป็นสินค้าใหม่' : 'ไม่มีในคลัง · อนุมัติแล้วเพิ่มเข้ารายการสินค้า แต่ไม่ตัด Stock') + ')</small>' : ''); }).join('') + '</ul>' +
       (r.note ? '<div class="hint">หมายเหตุ: ' + esc(r.note) + '</div>' : '') +
       (r.status !== 'pending' ? '<div class="hint">' + st[0] + ' โดย ' + esc(r.decBy) + ' ' + esc(r.decAt.slice(0, 16)) + (r.reason ? ' · ' + esc(r.reason) : '') + '</div>'
         : stkCan() ? '<div class="dd" style="gap:6px;margin-top:6px;flex-wrap:wrap"><button class="rqOk" data-id="' + r.id + '">✔ อนุมัติ</button><button class="sec rqNo" data-id="' + r.id + '">✕ ไม่อนุมัติ</button></div>' : '') +
@@ -3840,7 +3840,7 @@ async function quotePage(box) {
     let h = '<h4>คำขอใบเสนอราคา <small class="hint">' + QT.list.length + ' รายการ</small></h4>' +
       '<div class="hint" style="margin-bottom:6px">เก็บ record คำขอ → แนบไฟล์ใบเสนอราคาที่ได้รับ → กด "บันทึกและแจ้ง Inflight" ระบบแจ้งเตือน Inflight และไฟล์ไปอยู่ที่หน้า "ใบเสนอราคา (ดาวน์โหลด)"</div>' +
       (can ? '<details class="imp" id="qtNewBox"' + (QT.newOpen ? ' open' : '') + '><summary><b>+ เพิ่มคำขอใหม่</b></summary><div class="dd qtform">' +
-        '<label>วันที่ขอ<input type="date" id="qnD" value="' + today() + '"></label><label style="flex:2;min-width:220px">เรื่อง / รายการที่ขอ<input id="qnT" placeholder="เช่น น้ำดื่ม 1500 ml 2,000 ขวด"></label>' +
+        '<label>วันที่ขอ<input type="date" id="qnD" value="' + today() + '"></label><label style="flex:2;min-width:220px">เรื่อง / รายการที่ขอ<input id="qnT"></label>' +
         '<label>หน่วยงานที่ขอ<input id="qnP" value="Inflight" list="qtDeptL" style="width:130px"></label><label>จำนวน<input id="qnQ" style="width:110px"></label>' +
         '<label style="flex:3;min-width:240px">รายละเอียด<input id="qnX"></label><button id="qnGo">บันทึกคำขอ</button></div>' +
         '<datalist id="qtDeptL">' + ['Inflight', 'BAC', 'Crew', 'Accounting'].concat(QT.list.map(x => x.dept)).filter((d, i, A) => d && A.indexOf(d) === i).map(d => '<option value="' + esc(d) + '">').join('') + '</datalist></details>' +
@@ -3943,7 +3943,7 @@ async function qfilesPage(box) {
     const wait = QT.list.filter(x => !(x.files || []).length && x.status !== 'closed' && hit(x));
     let h = '<h4>ใบเสนอราคา (ดาวน์โหลด) <small class="hint">' + done.length + ' เรื่อง</small></h4>' +
       '<details class="imp" id="qrBox"><summary><b>+ ขอใบเสนอราคาใหม่</b> <small class="hint">ส่งเรื่องให้ Procurement (มีแจ้งเตือน)</small></summary><div class="dd qtform">' +
-      '<label style="flex:2;min-width:220px">เรื่อง / รายการที่ขอ<input id="qrT" placeholder="เช่น น้ำดื่ม 1500 ml 2,000 ขวด"></label><label>จำนวน<input id="qrQ" style="width:110px"></label>' +
+      '<label style="flex:2;min-width:220px">เรื่อง / รายการที่ขอ<input id="qrT"></label><label>จำนวน<input id="qrQ" style="width:110px"></label>' +
       '<label style="flex:3;min-width:240px">รายละเอียด<input id="qrX"></label><button id="qrGo">ส่งคำขอ</button></div></details>' +
       '<div class="rtabs"><input id="qfQ" placeholder="ค้นหา เรื่อง / ชื่อไฟล์..." value="' + esc(QT.fq || '') + '" style="min-width:240px"></div>';
     if (!done.length) h += '<div class="imp"><b>ยังไม่มีไฟล์ใบเสนอราคา</b><div class="hint">เมื่อ Procurement แนบไฟล์และกดแจ้ง จะขึ้นที่หน้านี้และมีแจ้งเตือน</div></div>';
@@ -4001,17 +4001,17 @@ async function pstockPage(box) {
     let h = '<div class="pshead"><h4>Stock Procurement</h4><span><button class="sec" id="psRe" title="โหลดข้อมูลล่าสุดจากระบบ">🔄 รีเฟรช</button><button class="sec" id="psXls">⬇ Export Excel</button></span></div>';
     if (can) h += '<div class="imp psform2"><div class="psgrid">' +
       '<fieldset><legend>1 · สินค้า</legend>' +
-      '<label class="full">ชื่อสินค้า<input id="psN" list="psNameL" placeholder="พิมพ์ชื่อ หรือเลือกสินค้าเดิม" autocomplete="off"></label>' +
+      '<label class="full">ชื่อสินค้า<input id="psN" list="psNameL" autocomplete="off"></label>' +
       '<div class="pscode" id="psCode">รหัสสินค้า: <b>สร้างอัตโนมัติ</b></div>' +
-      '<label class="full">รายละเอียด / สเปก<input id="psS" placeholder="เช่น 80 แกรม 500 แผ่น/รีม"></label>' +
-      '<div class="psrow"><label>หน่วยนับ<input id="psU" placeholder="ชิ้น / กล่อง / รีม"></label><label id="psOL">สินค้าในสต๊อก (ยอดตั้งต้น)<input type="number" min="0" id="psO" placeholder="0"></label></div></fieldset>' +
+      '<label class="full">รายละเอียด / สเปก<input id="psS"></label>' +
+      '<div class="psrow"><label>หน่วยนับ<input id="psU"></label><label id="psOL">สินค้าในสต๊อก (ยอดตั้งต้น)<input type="number" min="0" id="psO"></label></div></fieldset>' +
       '<fieldset><legend>2 · เบิก / รับเข้า</legend>' +
       '<div class="psseg" id="psType"><button type="button" data-t="out" class="' + (PS.type === 'out' ? 'on' : '') + '">📤 เบิก</button><button type="button" data-t="in" class="' + (PS.type === 'in' ? 'on' : '') + '">📥 รับเข้า</button></div>' +
-      '<div class="psrow"><label>จำนวน<input type="number" min="0" id="psQ1" placeholder="0"></label><label>หน่วยงาน<input id="psDp" list="psDeptL" placeholder="พิมพ์ชื่อหน่วยงาน"></label></div>' +
+      '<div class="psrow"><label>จำนวน<input type="number" min="0" id="psQ1"></label><label>หน่วยงาน<input id="psDp" list="psDeptL"></label></div>' +
       '<label class="full"><span id="psSgL">' + (PS.type === 'out' ? 'ชื่อผู้เบิก' : 'ชื่อผู้รับเข้า') + '</span><input id="psSg" list="psSignL" value="' + esc(ME.name || ME.username || '') + '"></label></fieldset>' +
       '<fieldset><legend>3 · วันที่ เวลา</legend>' +
       '<div class="psrow"><label>วันที่<input type="date" id="psD" value="' + today() + '"></label><label>เวลา<input type="time" id="psTm" value="' + psNow() + '"></label></div>' +
-      '<label class="full">หมายเหตุ<input id="psNt" placeholder="(ถ้ามี)"></label>' +
+      '<label class="full">หมายเหตุ<input id="psNt"></label>' +
       '<div class="pssum" id="psSum"></div><button id="psGo" class="psgo">บันทึก</button></fieldset></div>' +
       '<datalist id="psNameL">' + Object.keys(M).map(k => '<option value="' + esc(M[k].name) + '">' + esc(M[k].code + ' · เหลือ ' + M[k].total + ' ' + M[k].unit) + '</option>').join('') + '</datalist>' +
       '<datalist id="psDeptL">' + Object.keys(depts).map(d => '<option value="' + esc(d) + '">').join('') + '</datalist>' +

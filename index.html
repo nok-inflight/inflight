@@ -6623,9 +6623,12 @@ function fmTpl(kind, m, cmpM) {
   const cols = kind === 'dom' ? m.cfg.dom : m.cfg.inter, ex = fmExFor(kind, m);
   const blocks = kind === 'dom' ? m.dom : m.inter;
   // ไม่เว้นบล็อกว่างท้ายตาราง: จำนวนบล็อก = บล็อกสุดท้ายที่มีเที่ยวบิน (แถว TOTAL ขยับขึ้นมาต่อท้าย)
+  // (เฉพาะ DOM · INTER ใช้จำนวนบล็อกตามตั้งค่าเหมือนเดิม)
   let nB = 0;
-  blocks.forEach((b, i) => { if (b && b.rows && b.rows.some(r => r && (r.f || r.dep || r.arr))) nB = i + 1; });
-  nB = Math.max(1, nB);
+  if (kind === 'dom') {
+    blocks.forEach((b, i) => { if (b && b.rows && b.rows.some(r => r && (r.f || r.dep || r.arr))) nB = i + 1; });
+    nB = Math.max(1, nB);
+  } else nB = Math.max(blocks.length, Number(m.cfg.interBlocks) || 5);
   const WC = kind === 'dom' ? 21 : 17;
   const S = [], sk = {};
   const sty = (lab, rc, mod) => {
@@ -6738,7 +6741,7 @@ function fmTpl(kind, m, cmpM) {
   if (nt) h[maxr - 1] = Math.max(30, 15 * (nt.split(/\r?\n/).reduce((a, l) => a + Math.max(1, Math.ceil(l.length / Math.max(30, maxc * 7))), 1) + 1));
   return {
     T: { noGrid: 1, rich: rich, w: w, h: h, m: [[1, 1, 1, maxc], [totRow, 1, totRow, 6]].concat(nMerge), s: S, c: c, imgs: [], maxr: maxr, maxc: maxc,
-      page: { orient: 'landscape', scale: 100, fitH: 0, titles: '1:3', freeze: 3, breaks: fmPageBreaks(w, h, nB, totRow, maxr) } },
+      page: kind === 'dom' ? { orient: 'landscape', scale: 100, fitH: 0, titles: '1:3', freeze: 3, breaks: fmPageBreaks(w, h, nB, totRow, maxr) } : { orient: 'landscape', scale: 100, fitH: 0 } },
     v: v
   };
 }

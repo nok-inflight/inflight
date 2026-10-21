@@ -51,6 +51,229 @@ label.lb { margin-top: 0; font-weight: 600; color: var(--mut); }
 <main id="app"><div class="card"><span class="hint">กำลังโหลดรายการสินค้า...</span></div></main>
 <div id="toast"></div><div id="busy"><span id="busyT">กำลังส่ง...</span></div>
 <script>
+// ===== DocScan: สแกนเอกสารด้วยกล้อง (ตัดขอบ / ดัดให้ตรง / ทำให้ชัด / รวม PDF / อ่านข้อความ) · ใช้ได้ทั้งเว็บหลัก แบบฟอร์มเบิกสินค้า และเมนูผู้โดยสาร =====
+var DocScan = (function () {
+  var CSS = '.dsov{position:fixed;inset:0;z-index:99995;background:rgba(15,13,10,.92);color:#f3ead2;display:flex;flex-direction:column;font:15px/1.4 system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif}' +
+    '.dsh{display:flex;align-items:center;gap:8px;padding:10px 12px;background:#2a241a}.dsh b{flex:1;font-size:16px}' +
+    '.dsb{border:0;border-radius:10px;padding:9px 13px;background:#8a6d2f;color:#fff;font:inherit;font-weight:700;cursor:pointer}.dsb.sec{background:#5c5546}.dsb:disabled{opacity:.5}' +
+    '.dsbody{flex:1;overflow:auto;padding:12px}.dspg{display:flex;flex-wrap:wrap;gap:10px}.dspg .pg{position:relative;width:110px}.dspg img{width:110px;height:150px;object-fit:contain;background:#fff;border-radius:6px;display:block}' +
+    '.dspg .pg span{position:absolute;left:4px;top:4px;background:#000a;color:#fff;border-radius:8px;padding:0 6px;font-size:12px}.dspg .pg .ac{display:flex;gap:4px;margin-top:4px}.dspg .pg .ac button{flex:1;padding:5px 0;font-size:12px}' +
+    '.dsadd{display:flex;gap:8px;flex-wrap:wrap;margin:10px 0}.dshint{color:#bfb393;font-size:13px}.dsf{display:flex;gap:8px;padding:10px 12px;background:#2a241a;flex-wrap:wrap}.dsf .dsb{flex:1}' +
+    '.dsed{position:relative;margin:0 auto;touch-action:none;user-select:none}.dsed canvas{display:block;max-width:100%;border-radius:6px}.dsed svg{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}' +
+    '.dsk{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;border-radius:50%;background:rgba(255,202,8,.85);border:2px solid #fff;box-shadow:0 0 0 2px #0006;touch-action:none}' +
+    '.dstx{width:100%;min-height:160px;box-sizing:border-box;background:#1f1b14;color:#f3ead2;border:1px solid #4a4434;border-radius:8px;padding:8px;font:13px/1.45 monospace}' +
+    '.dsseg{display:inline-flex;border:1px solid #8a6d2f;border-radius:10px;overflow:hidden}.dsseg button{border:0;background:transparent;color:#f3ead2;padding:7px 12px;font:inherit}.dsseg button.on{background:#8a6d2f;color:#fff}';
+  function el(tag, cls, html) { var e = document.createElement(tag); if (cls) e.className = cls; if (html != null) e.innerHTML = html; return e; }
+  function css() { if (document.getElementById('dsCss')) return; var s = el('style'); s.id = 'dsCss'; s.textContent = CSS; document.head.appendChild(s); }
+  function loadImg(src) { return new Promise(function (ok, ko) { var im = new Image(); im.onload = function () { ok(im); }; im.onerror = function () { ko(new Error('เปิดรูปไม่ได้')); }; im.src = src; }); }
+  function readFile(f) { return new Promise(function (ok, ko) { var r = new FileReader(); r.onload = function () { ok(r.result); }; r.onerror = function () { ko(new Error('อ่านไฟล์ไม่ได้')); }; r.readAsDataURL(f); }); }
+  // ย่อรูปต้นฉบับให้ด้านยาวไม่เกิน max (ทำงานเร็วบนมือถือ)
+  function fitCanvas(im, max) { var s = Math.min(1, max / Math.max(im.width, im.height)), c = document.createElement('canvas'); c.width = Math.round(im.width * s); c.height = Math.round(im.height * s); c.getContext('2d').drawImage(im, 0, 0, c.width, c.height); return c; }
+  // แก้สมการ homography (จากสี่เหลี่ยมผลลัพธ์ → มุมเอกสารในรูป)
+  function homo(src, dst) {
+    var A = [], b = [], i;
+    for (i = 0; i < 4; i++) {
+      var x = src[i][0], y = src[i][1], u = dst[i][0], v = dst[i][1];
+      A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); b.push(u);
+      A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); b.push(v);
+    }
+    var n = 8;
+    for (i = 0; i < n; i++) {
+      var p = i; for (var r = i + 1; r < n; r++) if (Math.abs(A[r][i]) > Math.abs(A[p][i])) p = r;
+      var t = A[i]; A[i] = A[p]; A[p] = t; t = b[i]; b[i] = b[p]; b[p] = t;
+      for (r = i + 1; r < n; r++) { var f = A[r][i] / A[i][i]; for (var c = i; c < n; c++) A[r][c] -= f * A[i][c]; b[r] -= f * b[i]; }
+    }
+    var h = new Array(n);
+    for (i = n - 1; i >= 0; i--) { var s = b[i]; for (var c2 = i + 1; c2 < n; c2++) s -= A[i][c2] * h[c2]; h[i] = s / A[i][i]; }
+    return h;
+  }
+  function dist(a, b) { return Math.sqrt((a[0] - b[0]) * (a[0] - b[0]) + (a[1] - b[1]) * (a[1] - b[1])); }
+  // ตัด + ดัดให้ตรง (perspective) · q = [บนซ้าย, บนขวา, ล่างขวา, ล่างซ้าย]
+  function warp(srcC, q, maxOut) {
+    var W = Math.round(Math.max(dist(q[0], q[1]), dist(q[3], q[2]))), H = Math.round(Math.max(dist(q[0], q[3]), dist(q[1], q[2])));
+    var s = Math.min(1, (maxOut || 1600) / Math.max(W, H)); W = Math.max(10, Math.round(W * s)); H = Math.max(10, Math.round(H * s));
+    var h = homo([[0, 0], [W, 0], [W, H], [0, H]], q);
+    var sd = srcC.getContext('2d').getImageData(0, 0, srcC.width, srcC.height), sw = srcC.width, sh = srcC.height, sp = sd.data;
+    var out = document.createElement('canvas'); out.width = W; out.height = H;
+    var od = out.getContext('2d').createImageData(W, H), op = od.data;
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var d = h[6] * x + h[7] * y + 1, sx = (h[0] * x + h[1] * y + h[2]) / d, sy = (h[3] * x + h[4] * y + h[5]) / d;
+      var o = (y * W + x) * 4;
+      if (sx < 0 || sy < 0 || sx >= sw - 1 || sy >= sh - 1) { op[o] = op[o + 1] = op[o + 2] = 255; op[o + 3] = 255; continue; }
+      var x0 = sx | 0, y0 = sy | 0, fx = sx - x0, fy = sy - y0, i0 = (y0 * sw + x0) * 4, i1 = i0 + 4, i2 = i0 + sw * 4, i3 = i2 + 4;
+      for (var k = 0; k < 3; k++) op[o + k] = sp[i0 + k] * (1 - fx) * (1 - fy) + sp[i1 + k] * fx * (1 - fy) + sp[i2 + k] * (1 - fx) * fy + sp[i3 + k] * fx * fy;
+      op[o + 3] = 255;
+    }
+    out.getContext('2d').putImageData(od, 0, 0);
+    return out;
+  }
+  // ทำให้ตัวหนังสือชัด (ขาวดำ + ยืดความต่างสี)
+  function enhance(c) {
+    var o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
+    var g = o.getContext('2d'); g.drawImage(c, 0, 0);
+    var d = g.getImageData(0, 0, o.width, o.height), p = d.data, hist = new Array(256).fill(0), n = p.length / 4, i;
+    for (i = 0; i < p.length; i += 4) { var l = Math.round(p[i] * .299 + p[i + 1] * .587 + p[i + 2] * .114); p[i] = l; hist[l]++; }
+    var lo = 0, hi = 255, acc = 0; for (i = 0; i < 256; i++) { acc += hist[i]; if (acc > n * .02) { lo = i; break; } }
+    acc = 0; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > n * .25) { hi = i; break; } }
+    lo = Math.min(lo, hi - 110); var rng = Math.max(20, hi - lo);
+    for (i = 0; i < p.length; i += 4) { var v = (p[i] - lo) / rng; v = v < 0 ? 0 : v > 1 ? 1 : v; v = Math.pow(v, 1.6); v = Math.round(v * 255); p[i] = p[i + 1] = p[i + 2] = v; }
+    g.putImageData(d, 0, 0); return o;
+  }
+  function jpg(c, q) { return c.toDataURL('image/jpeg', q || .82); }
+  function loadJsPdf() {
+    if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
+    return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload = function () { ok(window.jspdf.jsPDF); }; s.onerror = function () { ko(new Error('โหลดตัวสร้าง PDF ไม่ได้')); }; document.head.appendChild(s); });
+  }
+  // รวมหน้าเป็น PDF (A4 · รูปพอดีหน้า)
+  function toPdf(pages) {
+    return loadJsPdf().then(function (J) {
+      var doc = null;
+      return Promise.all(pages.map(function (p) { return loadImg(p.out); })).then(function (ims) {
+        ims.forEach(function (im, i) {
+          var land = im.width > im.height, pw = land ? 297 : 210, ph = land ? 210 : 297;
+          if (!doc) doc = new J({ orientation: land ? 'l' : 'p', unit: 'mm', format: 'a4' }); else doc.addPage('a4', land ? 'l' : 'p');
+          var s = Math.min((pw - 10) / im.width, (ph - 10) / im.height), w = im.width * s, h = im.height * s;
+          doc.addImage(pages[i].out, 'JPEG', (pw - w) / 2, (ph - h) / 2, w, h);
+        });
+        var u = doc.output('datauristring'); return u.split(',')[1];
+      });
+    });
+  }
+  // หามุมกระดาษอัตโนมัติ (กระดาษสีอ่อนบนพื้นเข้ม): Otsu threshold แล้วหาจุดสุดขอบ 4 ทิศ
+  function autoQuad(src) {
+    try {
+      var c = fitCanvas(src, 240), w = c.width, h = c.height, d = c.getContext('2d').getImageData(0, 0, w, h).data, L = new Uint8Array(w * h), hist = new Array(256).fill(0), i;
+      for (i = 0; i < w * h; i++) { var v = (d[i * 4] * .299 + d[i * 4 + 1] * .587 + d[i * 4 + 2] * .114) | 0; L[i] = v; hist[v]++; }
+      var tot = w * h, sum = 0; for (i = 0; i < 256; i++) sum += i * hist[i];
+      var sB = 0, wB = 0, best = 0, th = 128;
+      for (i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; var wF = tot - wB; if (!wF) break; sB += i * hist[i]; var mB = sB / wB, mF = (sum - sB) / wF, bt = wB * wF * (mB - mF) * (mB - mF); if (bt > best) { best = bt; th = i; } }
+      var n = 0, tl = [0, 0, 1e9], tr = [0, 0, -1e9], br = [0, 0, -1e9], bl = [0, 0, 1e9];
+      for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
+        if (L[y * w + x] <= th) continue; n++;
+        if (x + y < tl[2]) tl = [x, y, x + y]; if (x + y > br[2]) br = [x, y, x + y];
+        if (x - y > tr[2]) tr = [x, y, x - y]; if (x - y < bl[2]) bl = [x, y, x - y];
+      }
+      var frac = n / tot; if (frac < .15 || frac > .96) return null;
+      var k = src.width / w;
+      return [tl, tr, br, bl].map(function (p) { return [p[0] * k, p[1] * k]; });
+    } catch (e) { return null; }
+  }
+  // หน้าตัดขอบ: ลากมุมทั้ง 4
+  function editor(pg) {
+    return new Promise(function (resolve) {
+      var ov = el('div', 'dsov'); ov.style.zIndex = 99996;
+      ov.innerHTML = '<div class="dsh"><b>ลากจุดเหลืองไปที่มุมเอกสาร</b></div><div class="dsbody"><div class="dsed" id="dsEd"></div><div class="dshint" style="margin-top:8px;text-align:center">ระบบจะตัดขอบและดัดเอกสารให้ตรง</div>' +
+        '<div style="text-align:center;margin-top:10px"><span class="dsseg" id="dsMode"><button data-m="bw" class="' + (pg.mode !== 'color' ? 'on' : '') + '">ขาวดำชัด</button><button data-m="color" class="' + (pg.mode === 'color' ? 'on' : '') + '">สีตามจริง</button></span></div></div>' +
+        '<div class="dsf"><button class="dsb sec" id="dsFull">ทั้งรูป</button><button class="dsb sec" id="dsNo">ยกเลิก</button><button class="dsb" id="dsOk">ใช้หน้านี้</button></div>';
+      document.body.appendChild(ov);
+      var box = ov.querySelector('#dsEd'), src = pg.src, mode = pg.mode || 'bw';
+      var maxW = Math.min(window.innerWidth - 24, 900), maxH = window.innerHeight - 230, s = Math.min(maxW / src.width, maxH / src.height, 1);
+      var vw = Math.round(src.width * s), vh = Math.round(src.height * s);
+      var cv = document.createElement('canvas'); cv.width = vw; cv.height = vh; cv.getContext('2d').drawImage(src, 0, 0, vw, vh);
+      box.style.width = vw + 'px'; box.style.height = vh + 'px'; box.appendChild(cv);
+      var svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg'); svg.setAttribute('viewBox', '0 0 ' + vw + ' ' + vh); box.appendChild(svg);
+      var q = (pg.q || autoQuad(src) || [[.06, .06], [.94, .06], [.94, .94], [.06, .94]].map(function (p) { return [p[0] * src.width, p[1] * src.height]; })).map(function (p) { return [p[0] * s, p[1] * s]; });
+      var ks = q.map(function (p, i) { var k = el('div', 'dsk'); k.dataset.i = i; box.appendChild(k); return k; });
+      function paint() {
+        ks.forEach(function (k, i) { k.style.left = q[i][0] + 'px'; k.style.top = q[i][1] + 'px'; });
+        svg.innerHTML = '<polygon points="' + q.map(function (p) { return p.join(','); }).join(' ') + '" fill="rgba(255,202,8,.15)" stroke="#ffca08" stroke-width="2"/>';
+      }
+      paint();
+      var drag = -1;
+      function pos(e) { var r = box.getBoundingClientRect(), t = e.touches ? e.touches[0] : e; return [Math.max(0, Math.min(vw, t.clientX - r.left)), Math.max(0, Math.min(vh, t.clientY - r.top))]; }
+      ks.forEach(function (k, i) {
+        var st = function (e) { drag = i; e.preventDefault(); };
+        k.addEventListener('mousedown', st); k.addEventListener('touchstart', st, { passive: false });
+      });
+      var mv = function (e) { if (drag < 0) return; q[drag] = pos(e); paint(); e.preventDefault(); };
+      var up = function () { drag = -1; };
+      window.addEventListener('mousemove', mv); window.addEventListener('touchmove', mv, { passive: false });
+      window.addEventListener('mouseup', up); window.addEventListener('touchend', up);
+      var done = function (v) { window.removeEventListener('mousemove', mv); window.removeEventListener('touchmove', mv); window.removeEventListener('mouseup', up); window.removeEventListener('touchend', up); ov.remove(); resolve(v); };
+      Array.prototype.forEach.call(ov.querySelectorAll('#dsMode button'), function (b) { b.onclick = function () { mode = b.dataset.m; Array.prototype.forEach.call(ov.querySelectorAll('#dsMode button'), function (x) { x.classList.toggle('on', x === b); }); }; });
+      ov.querySelector('#dsFull').onclick = function () { q = [[0, 0], [vw, 0], [vw, vh], [0, vh]]; paint(); };
+      ov.querySelector('#dsNo').onclick = function () { done(null); };
+      ov.querySelector('#dsOk').onclick = function () { done({ q: q.map(function (p) { return [p[0] / s, p[1] / s]; }), mode: mode }); };
+    });
+  }
+  function process(pg) { var w = warp(pg.src, pg.q, 1600); var o = pg.mode === 'color' ? w : enhance(w); pg.out = jpg(o, .8); pg.thumb = jpg(fitCanvas(o, 220), .7); return pg; }
+  // เปิดหน้าสแกน · opt: { title, max, pdf, ocr(pages b64[]) → Promise(text), hint, okText }
+  function open(opt) {
+    opt = opt || {}; css();
+    return new Promise(function (resolve) {
+      var pages = [], max = opt.max || 10;
+      var ov = el('div', 'dsov');
+      var f1 = el('input'); f1.type = 'file'; f1.accept = 'image/*'; f1.setAttribute('capture', 'environment'); f1.style.display = 'none';
+      var f2 = el('input'); f2.type = 'file'; f2.accept = 'image/*'; f2.multiple = true; f2.style.display = 'none';
+      document.body.appendChild(ov); ov.appendChild(f1); ov.appendChild(f2);
+      function close(v) { ov.remove(); resolve(v); }
+      function draw() {
+        ov.querySelectorAll('.dsh,.dsbody,.dsf').forEach(function (n) { n.remove(); });
+        var h = el('div', 'dsh', '<b>' + (opt.title || 'สแกนเอกสาร') + '</b><button class="dsb sec" id="dsX">ปิด</button>');
+        var b = el('div', 'dsbody', (opt.hint ? '<div class="dshint">' + opt.hint + '</div>' : '') +
+          '<div class="dsadd"><button class="dsb" id="dsCam">📷 ถ่าย' + (pages.length ? 'หน้าถัดไป' : 'เอกสาร') + '</button><button class="dsb sec" id="dsPic">🖼 เลือกรูป</button></div>' +
+          '<div class="dspg">' + pages.map(function (p, i) { return '<div class="pg"><img src="' + p.thumb + '" alt=""><span>หน้า ' + (i + 1) + '</span><div class="ac"><button class="dsb sec" data-e="' + i + '">ตัดขอบ</button><button class="dsb sec" data-d="' + i + '">ลบ</button></div></div>'; }).join('') + '</div>' +
+          (pages.length ? '' : '<div class="dshint" style="margin-top:14px">วางเอกสารบนพื้นสีเข้ม ถ่ายให้เห็นมุมกระดาษครบทั้ง 4 มุม แสงสว่างพอ ไม่มีเงาบัง</div>'));
+        var f = el('div', 'dsf', '<button class="dsb" id="dsDone"' + (pages.length ? '' : ' disabled') + '>' + (opt.okText || 'เสร็จ') + (pages.length ? ' (' + pages.length + ' หน้า)' : '') + '</button>');
+        ov.appendChild(h); ov.appendChild(b); ov.appendChild(f);
+        ov.querySelector('#dsX').onclick = function () { close(null); };
+        ov.querySelector('#dsCam').onclick = function () { if (pages.length >= max) { alert('สแกนได้สูงสุด ' + max + ' หน้า'); return; } f1.click(); };
+        ov.querySelector('#dsPic').onclick = function () { if (pages.length >= max) { alert('สแกนได้สูงสุด ' + max + ' หน้า'); return; } f2.click(); };
+        Array.prototype.forEach.call(ov.querySelectorAll('[data-d]'), function (x) { x.onclick = function () { pages.splice(+x.dataset.d, 1); draw(); }; });
+        Array.prototype.forEach.call(ov.querySelectorAll('[data-e]'), function (x) { x.onclick = function () { var pg = pages[+x.dataset.e]; editor(pg).then(function (r) { if (r) { pg.q = r.q; pg.mode = r.mode; process(pg); } draw(); }); }; });
+        ov.querySelector('#dsDone').onclick = finish;
+      }
+      function add(files) {
+        var L = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type); }).slice(0, max - pages.length);
+        var chain = Promise.resolve();
+        L.forEach(function (f) {
+          chain = chain.then(function () { return readFile(f); }).then(loadImg).then(function (im) {
+            var pg = { src: fitCanvas(im, 2000), mode: opt.mode || 'bw' };
+            return editor(pg).then(function (r) { if (!r) return; pg.q = r.q; pg.mode = r.mode; process(pg); pages.push(pg); });
+          });
+        });
+        chain.then(draw, function (e) { alert(e.message); draw(); });
+      }
+      f1.onchange = function () { var fs = f1.files; add(fs); f1.value = ''; };
+      f2.onchange = function () { var fs = f2.files; add(fs); f2.value = ''; };
+      function finish() {
+        var bt = ov.querySelector('#dsDone'); bt.disabled = true; bt.textContent = 'กำลังเตรียมไฟล์...';
+        var res = { pages: pages.map(function (p) { return p.out; }), thumbs: pages.map(function (p) { return p.thumb; }), pdf: '', text: '' };
+        var p1 = opt.pdf === false ? Promise.resolve('') : toPdf(pages);
+        p1.then(function (pdf) {
+          res.pdf = pdf;
+          if (!opt.ocr) return '';
+          bt.textContent = 'กำลังอ่านข้อความ...';
+          return opt.ocr(pages.slice(0, opt.ocrPages || 3).map(function (p) { return { b64: p.out.split(',')[1], mime: 'image/jpeg' }; })).catch(function (e) { res.ocrError = e.message || String(e); return ''; });
+        }).then(function (t) { res.text = t || ''; close(res); }, function (e) { alert(e.message || e); bt.disabled = false; bt.textContent = opt.okText || 'เสร็จ'; });
+      }
+      draw();
+      if (opt.autoCam !== false) setTimeout(function () { try { f1.click(); } catch (e) { } }, 50);
+    });
+  }
+  // จับคู่ข้อความที่อ่านได้กับรายการสินค้า (ชื่อ / รหัสสินค้า) แล้วหาจำนวนในบรรทัดเดียวกัน
+  function matchItems(text, items) {
+    var lines = String(text || '').split('\n').map(function (l) { return l.trim(); }).filter(Boolean), out = [], seen = {};
+    var norm = function (s) { return String(s || '').toLowerCase().replace(/\s+/g, ''); };
+    lines.forEach(function (l, li) {
+      var nl = norm(l);
+      items.forEach(function (it) {
+        if (seen[it.id]) return;
+        var hitSku = it.sku && nl.indexOf(norm(it.sku)) >= 0, hitName = it.name && norm(it.name).length >= 3 && nl.indexOf(norm(it.name)) >= 0;
+        if (!hitSku && !hitName) return;
+        var rest = l; if (it.sku) rest = rest.split(it.sku).join(' '); if (it.name) rest = rest.split(it.name).join(' ');
+        var nums = (rest.match(/\d[\d,]*(?:\.\d+)?/g) || []).map(function (x) { return Number(x.replace(/,/g, '')); }).filter(function (x) { return x > 0 && x < 100000 && Math.floor(x) === x; });
+        if (!nums.length && lines[li + 1]) nums = (lines[li + 1].match(/^\d[\d,]*$/) || []).map(function (x) { return Number(x.replace(/,/g, '')); });
+        seen[it.id] = 1; out.push({ id: it.id, q: nums.length ? nums[0] : '', line: l });
+      });
+    });
+    return out;
+  }
+  return { open: open, matchItems: matchItems };
+})();
+
+</script>
+<script>
 // แบบฟอร์มสาธารณะ (ไม่ต้องล็อกอิน) · ส่งคำขอเข้า Inflight › Stock สินค้า › คำขอเบิก
 var API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
 var CATS = [['crew', 'ของใช้ลูกเรือ'], ['cabin', 'ของใช้บนเครื่อง'], ['fb', 'F&B'], ['mer', 'MERCHANDISE']];
@@ -132,7 +355,11 @@ function draw() {
     '<label>หน่วยงาน <span class="req">*</span></label><input id="fDept" value="' + esc(S.dept) + '"><label>เบอร์โทร</label><input id="fTel" inputmode="tel" value="' + esc(S.tel) + '"></div>' +
     '<div class="card"><h2>4 · รูปภาพ <span class="req">* บังคับ</span></h2><div class="btns"><button type="button" id="bCam">📷 ถ่ายรูป</button><button type="button" class="sec" id="bPic">🖼 เลือกรูป</button></div>' +
     '<input type="file" id="f1" accept="image/*" capture="environment" hidden><input type="file" id="f2" accept="image/*" hidden>' +
-    '<div class="ph">' + (S.photo ? '<img src="' + S.photo.thumb + '" alt=""><button type="button" class="sec" id="bPx">ลบรูป</button>' : '<span class="hint">ถ่ายรูปสินค้าที่' + w + ' หรือเอกสารประกอบ</span>') + '</div></div>' +
+    '<div class="ph">' + (S.photo ? '<img src="' + S.photo.thumb + '" alt=""><button type="button" class="sec" id="bPx">ลบรูป</button>' : '<span class="hint">ถ่ายรูปสินค้าที่' + w + ' หรือเอกสารประกอบ</span>') + '</div>' +
+    '<h2 style="margin-top:16px">5 · สแกนเอกสาร <small class="hint">(ไม่บังคับ)</small></h2><div class="hint">ใบส่งของ / ใบเบิก · ระบบรวมเป็น PDF และอ่านข้อความเพื่อกรอกรายการสินค้าให้</div>' +
+    '<button type="button" class="sec" id="bScan" style="width:100%;margin-top:8px">📄 ' + (S.doc ? 'สแกนใหม่' : 'สแกนเอกสาร') + '</button>' +
+    (S.doc ? '<div class="ph">' + S.doc.thumbs.slice(0, 4).map(function (t) { return '<img src="' + t + '" alt="" style="width:70px;height:90px">'; }).join('') + '<button type="button" class="sec" id="bDx">ลบเอกสาร</button></div><div class="hint">✓ เอกสาร ' + S.doc.thumbs.length + ' หน้า (PDF) แนบไปกับคำขอ' + (S.doc.n ? ' · จับคู่สินค้าได้ ' + S.doc.n + ' รายการ' : '') + '</div>' +
+      (S.doc.text ? '<details><summary class="hint">ข้อความที่อ่านได้</summary><textarea readonly rows="6" style="font-size:12px">' + esc(S.doc.text) + '</textarea></details>' : '') : '') + '</div>' +
     '<button class="go" id="bGo">ส่งคำขอ' + w + (nOk ? ' (' + nOk + ' รายการ)' : '') + '</button>' +
     '<div class="card"><details><summary>ตรวจสถานะคำขอ</summary><label>เลขคำขอ</label><input id="fNo"><button type="button" class="sec" id="bChk" style="margin-top:8px">ตรวจสถานะ</button><div class="st" id="stOut"></div></details></div>';
   each('#sT button', function (b) { b.onclick = function () { keep(); S.t = b.dataset.v; draw(); }; });
@@ -158,6 +385,21 @@ function draw() {
   $('bCam').onclick = function () { $('f1').click(); }; $('bPic').onclick = function () { $('f2').click(); };
   $('f1').onchange = function () { pick($('f1')); }; $('f2').onchange = function () { pick($('f2')); };
   if ($('bPx')) $('bPx').onclick = function () { keep(); S.photo = null; draw(); };
+  if ($('bDx')) $('bDx').onclick = function () { keep(); S.doc = null; draw(); };
+  $('bScan').onclick = async function () {
+    keep();
+    var r = await DocScan.open({ title: 'สแกนเอกสาร', max: 5, okText: 'เสร็จ · อ่านข้อความ', hint: 'ถ่ายได้หลายหน้า · รวมเป็น PDF ไฟล์เดียว', ocr: function (pages) { return api('ioPubOcr', [pages.slice(0, 2)]); } });
+    if (!r) return;
+    var L = S.items.filter(function (x) { return x.kind === S.kind; }), m = DocScan.matchItems(r.text, L);
+    // เติมรายการที่จับคู่ได้ (ไม่ซ้ำกับที่เลือกไว้แล้ว)
+    var have = {}; S.rows.forEach(function (x) { if (x.id) have[x.id] = 1; });
+    var add = m.filter(function (x) { return !have[x.id]; }).map(function (x) { var b = blankRow(); b.id = x.id; b.q = x.q; return b; });
+    S.rows = S.rows.filter(function (x) { return x.id || x.q; }).concat(add); if (!S.rows.length) S.rows = [blankRow()];
+    S.doc = { b64: r.pdf, thumbs: r.thumbs, text: r.text, n: add.length };
+    if (!S.photo && r.pages.length) S.photo = { mime: 'image/jpeg', b64: r.pages[0].split(',')[1], thumb: r.thumbs[0] };
+    toast(r.ocrError ? 'อ่านข้อความไม่สำเร็จ · แนบ PDF แล้ว เลือกสินค้าเองได้' : add.length ? 'จับคู่สินค้าได้ ' + add.length + ' รายการ · ตรวจจำนวนก่อนส่ง' : 'แนบเอกสารแล้ว · ไม่พบชื่อสินค้าที่ตรงกัน เลือกเองได้', !r.ocrError);
+    draw();
+  };
   $('bChk').onclick = async function () {
     try { busy(true, 'กำลังตรวจ...'); var r = await api('ioPubIStockStatus', [$('fNo').value]); var st = { pending: '⏳ รออนุมัติ', approved: '✅ อนุมัติแล้ว', rejected: '❌ ไม่อนุมัติ' }[r.status] || r.status; $('stOut').innerHTML = '<b>' + esc(r.no) + '</b> · ' + st + (r.reason ? ' · ' + esc(r.reason) : '') + (r.decAt ? ' · ' + esc(r.decAt.slice(0, 16)) : ''); }
     catch (e) { $('stOut').textContent = e.message; } finally { busy(false); }
@@ -181,10 +423,10 @@ function draw() {
     $('bGo').disabled = true;
     try {
       busy(true, 'กำลังส่งคำขอและอัปโหลดรูป...');
-      var r = await api('ioPubIStockReq', [{ kind: S.kind, t: S.t, d: S.d, items: items, name: S.name, dept: S.dept, phone: S.tel, note: S.note }, S.photo]);
+      var r = await api('ioPubIStockReq', [{ kind: S.kind, t: S.t, d: S.d, items: items, name: S.name, dept: S.dept, phone: S.tel, note: S.note, ocr: S.doc ? S.doc.text : '' }, S.photo, S.doc ? { b64: S.doc.b64 } : null]);
       window.scrollTo(0, 0);
       $('app').innerHTML = '<div class="card ok"><div class="big">✅</div><h2>ส่งคำขอแล้ว (' + items.length + ' รายการ)</h2><div class="hint">เลขคำขอ</div><div class="no">' + esc(r.no) + '</div><p class="hint">จดเลขนี้ไว้ตรวจสถานะ · เจ้าหน้าที่ Inflight จะตรวจและอนุมัติ</p><button id="bNew">ส่งคำขอใหม่</button></div>';
-      $('bNew').onclick = function () { S.rows = [blankRow()]; S.photo = null; S.note = ''; draw(); };
+      $('bNew').onclick = function () { S.rows = [blankRow()]; S.photo = null; S.doc = null; S.note = ''; draw(); };
     } catch (e) { toast(e.message); if ($('bGo')) $('bGo').disabled = false; } finally { busy(false); }
   };
 }

@@ -103,7 +103,7 @@ function rowHtml(L, r, i) {
     '<label class="lb">🔍 ค้นหา SKU / ชื่อสินค้า</label><input class="fS" data-i="' + i + '" value="' + esc(r.f || '') + '">' +
     '<label class="lb">สินค้า <span class="req">*</span></label>' +
     '<select class="fI" data-i="' + i + '">' + optsHtml(L, r) + '</select>';
-  if (isNew) h += '<div class="g2"><div><label>SKU</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select></div></div>' +
+  if (isNew) h += '<div class="g2"><div><label>SKU</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '<option value="__other"' + (r.cat === '__other' ? ' selected' : '') + '>อื่นๆ (หมวดใหม่)</option></select>' + (r.cat === '__other' ? '<input class="fCatX" data-i="' + i + '" value="' + esc(r.catx || '') + '">' : '') + '</div></div>' +
     '<label>ชื่อสินค้า' + (S.t === 'in' ? 'ใหม่' : '') + ' <span class="req">*</span></label><input class="fNm" data-i="' + i + '" value="' + esc(r.name) + '">';
   else if (it) h += '<div class="hint" style="margin-top:4px">SKU: <b>' + esc(it.sku || '-') + '</b> · หมวด ' + esc((catsOf(L).filter(function (c) { return c[0] === it.cat; })[0] || ['', it.cat])[1]) + '</div>';
   h += '<div class="g2"><div><label>จำนวน <span class="req">*</span></label><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" value="' + esc(r.q) + '"></div>' +
@@ -114,7 +114,7 @@ function keep() {
   if (!$('fD')) return;
   S.d = $('fD').value; S.note = $('fN').value; S.name = $('fName').value; S.dept = $('fDept').value; S.tel = $('fTel').value;
   var put = function (cls, k) { each('.' + cls, function (x) { S.rows[x.dataset.i][k] = x.value; }); };
-  put('fI', 'id'); put('fQ', 'q'); put('fS', 'f'); put('fSku', 'sku'); put('fNm', 'name'); put('fU', 'unit'); put('fCat', 'cat');
+  put('fI', 'id'); put('fQ', 'q'); put('fCatX', 'catx'); put('fS', 'f'); put('fSku', 'sku'); put('fNm', 'name'); put('fU', 'unit'); put('fCat', 'cat');
 }
 function draw() {
   var L = S.items.filter(function (x) { return x.kind === S.kind; }), w = S.t === 'in' ? 'รับเข้า' : 'เบิก';
@@ -140,6 +140,7 @@ function draw() {
   if ($('bAdd')) $('bAdd').onclick = function () { keep(); S.rows.push(blankRow()); draw(); var l = document.querySelectorAll('.itm'); if (l.length) l[l.length - 1].scrollIntoView({ block: 'center' }); };
   each('.fX', function (b) { b.onclick = function () { keep(); S.rows.splice(Number(b.dataset.i), 1); draw(); }; });
   each('.fI', function (x) { x.onchange = function () { keep(); draw(); }; });
+  each('.fCat', function (x) { x.onchange = function () { keep(); draw(); var t = document.querySelector('.fCatX[data-i="' + x.dataset.i + '"]'); if (t) t.focus(); }; });
   each('.fS', function (x) {
     x.oninput = function () {
       var i = Number(x.dataset.i), r = S.rows[i]; r.f = x.value;
@@ -169,7 +170,7 @@ function draw() {
       if (!r.id && !q) return;
       if (!r.id) { bad = bad || 'รายการที่ ' + (i + 1) + ': เลือกสินค้า'; return; }
       if (!(q > 0)) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่จำนวน'; return; }
-      if (r.id === NEW) { if (!String(r.name).trim()) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่ชื่อสินค้าใหม่'; return; } items.push({ new: 1, sku: r.sku, name: r.name, unit: r.unit, cat: r.cat, q: q }); }
+      if (r.id === NEW) { if (!String(r.name).trim()) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่ชื่อสินค้าใหม่'; return; } var cat = r.cat === '__other' ? String(r.catx || '').trim() : r.cat; if (!cat) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่ชื่อหมวดใหม่'; return; } items.push({ new: 1, sku: r.sku, name: r.name, unit: r.unit, cat: cat, q: q }); }
       else items.push({ id: r.id, q: q });
     });
     if (bad) { toast(bad); return; }

@@ -85,7 +85,7 @@ function shrink(file, max, q) {
 function itemOf(id) { return S.items.filter(function (x) { return x.id === id; })[0]; }
 function catsOf(L) { var c = CATS.slice(); L.forEach(function (x) { if (x.cat && !c.some(function (k) { return k[0] === x.cat; })) c.push([x.cat, x.cat]); }); return c; }
 function label(x) { return (x.sku ? x.sku + ' · ' : '') + x.name + (x.unit ? ' (' + x.unit + ')' : ''); }
-// ตัวเลือกสินค้าของแถว (กรองด้วยคำค้น SKU / ชื่อ)
+// ตัวเลือกสินค้าของแถว (กรองด้วยคำค้น รหัสสินค้า / ชื่อ)
 function optsHtml(L, r) {
   var f = String(r.f || '').trim().toLowerCase();
   var hit = function (x) { return !f || (x.sku + ' ' + x.name).toLowerCase().indexOf(f) >= 0 || x.id === r.id; };
@@ -100,12 +100,12 @@ function optsHtml(L, r) {
 function rowHtml(L, r, i) {
   var it = itemOf(r.id), isNew = r.id === NEW;
   var h = '<div class="itm' + (isNew ? ' new' : '') + '"><div class="itmh"><b>รายการที่ ' + (i + 1) + '</b>' + (isNew ? '<span class="nb">🆕 ' + (S.t === 'in' ? 'สินค้าใหม่' : 'ไม่มีในรายการ') + '</span>' : '') + (S.rows.length > 1 ? '<button type="button" class="sec sm fX" data-i="' + i + '">✕ ลบ</button>' : '') + '</div>' +
-    '<label class="lb">🔍 ค้นหา SKU / ชื่อสินค้า</label><input class="fS" data-i="' + i + '" value="' + esc(r.f || '') + '">' +
+    '<label class="lb">🔍 ค้นหา รหัสสินค้า / ชื่อสินค้า</label><input class="fS" data-i="' + i + '" value="' + esc(r.f || '') + '">' +
     '<label class="lb">สินค้า <span class="req">*</span></label>' +
     '<select class="fI" data-i="' + i + '">' + optsHtml(L, r) + '</select>';
-  if (isNew) h += '<div class="g2"><div><label>SKU</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '<option value="__other"' + (r.cat === '__other' ? ' selected' : '') + '>อื่นๆ (หมวดใหม่)</option></select>' + (r.cat === '__other' ? '<input class="fCatX" data-i="' + i + '" value="' + esc(r.catx || '') + '">' : '') + '</div></div>' +
+  if (isNew) h += '<div class="g2"><div><label>รหัสสินค้า</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '<option value="__other"' + (r.cat === '__other' ? ' selected' : '') + '>อื่นๆ (หมวดใหม่)</option></select>' + (r.cat === '__other' ? '<input class="fCatX" data-i="' + i + '" value="' + esc(r.catx || '') + '">' : '') + '</div></div>' +
     '<label>ชื่อสินค้า' + (S.t === 'in' ? 'ใหม่' : '') + ' <span class="req">*</span></label><input class="fNm" data-i="' + i + '" value="' + esc(r.name) + '">';
-  else if (it) h += '<div class="hint" style="margin-top:4px">SKU: <b>' + esc(it.sku || '-') + '</b> · หมวด ' + esc((catsOf(L).filter(function (c) { return c[0] === it.cat; })[0] || ['', it.cat])[1]) + '</div>';
+  else if (it) h += '<div class="hint" style="margin-top:4px">รหัสสินค้า: <b>' + esc(it.sku || '-') + '</b> · หมวด ' + esc((catsOf(L).filter(function (c) { return c[0] === it.cat; })[0] || ['', it.cat])[1]) + '</div>';
   h += '<div class="g2"><div><label>จำนวน <span class="req">*</span></label><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" value="' + esc(r.q) + '"></div>' +
     '<div><label>หน่วยนับ</label>' + (isNew ? '<input class="fU" data-i="' + i + '" value="' + esc(r.unit) + '">' : '<input value="' + esc(it ? it.unit || '-' : '') + '" readonly class="ro">') + '</div></div></div>';
   return h;

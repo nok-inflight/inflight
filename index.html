@@ -6598,11 +6598,34 @@ function fmExFor(kind, m) {
   used.forEach(u => { if (!all.some(a => a.i === u.i)) all.push(u); });
   return all.sort((a, b) => a.i - b.i);
 }
+// ตัดหน้ากระดาษ (A4 แนวนอน พอดีความกว้าง 1 หน้า) ให้ตัดระหว่างบล็อกทะเบียนเท่านั้น ไม่ให้เที่ยวบินของทะเบียนเดียวกันหลุดไปอีกหน้า
+// คืนเลขแถวสุดท้ายของแต่ละหน้า (ใส่ page break หลังแถวนั้น) · แถว 1:3 พิมพ์ซ้ำทุกหน้า
+function fmPageBreaks(w, h, nB, totRow, maxr) {
+  const wPt = w.reduce((a, x) => a + Math.floor(x * 7 + 5) * 0.75, 0);
+  const scale = Math.min(1, Math.floor(Math.min(1, (842 - 2 * 0.4 * 72) / wPt) * 100) / 100);
+  const title = (h[0] || 30) + (h[1] || 15) + (h[2] || 150);
+  const usable = (595 - 2 * 0.5 * 72) / scale - title - 8;
+  const blockH = 4 * 15, tail = (maxr - totRow + 1) * 15 + (maxr > totRow ? (h[maxr - 1] || 15) - 15 : 0);
+  const per = Math.max(1, Math.floor(usable / blockH));
+  const out = [];
+  let b = 0;
+  while (b < nB) {
+    let take = Math.min(per, nB - b);
+    // หน้าสุดท้ายต้องมีที่ให้แถว TOTAL (และหมายเหตุ) ด้วย ไม่งั้นย้ายบล็อกท้ายไปหน้าถัดไป
+    if (b + take === nB && take * blockH + tail > usable && take > 1) take -= 1;
+    b += take;
+    if (b < nB) out.push(3 + b * 4);
+  }
+  return out;
+}
 function fmTpl(kind, m, cmpM) {
   const R = FM_RAW[kind], RS = FM_RAW.S;
   const cols = kind === 'dom' ? m.cfg.dom : m.cfg.inter, ex = fmExFor(kind, m);
   const blocks = kind === 'dom' ? m.dom : m.inter;
-  const nB = Math.max(blocks.length, Number(kind === 'dom' ? m.cfg.domBlocks : m.cfg.interBlocks) || (kind === 'dom' ? 25 : 5));
+  // ไม่เว้นบล็อกว่างท้ายตาราง: จำนวนบล็อก = บล็อกสุดท้ายที่มีเที่ยวบิน (แถว TOTAL ขยับขึ้นมาต่อท้าย)
+  let nB = 0;
+  blocks.forEach((b, i) => { if (b && b.rows && b.rows.some(r => r && (r.f || r.dep || r.arr))) nB = i + 1; });
+  nB = Math.max(1, nB);
   const WC = kind === 'dom' ? 21 : 17;
   const S = [], sk = {};
   const sty = (lab, rc, mod) => {
@@ -6714,7 +6737,8 @@ function fmTpl(kind, m, cmpM) {
   for (let r = 4; r <= maxr; r++) h.push(15);
   if (nt) h[maxr - 1] = Math.max(30, 15 * (nt.split(/\r?\n/).reduce((a, l) => a + Math.max(1, Math.ceil(l.length / Math.max(30, maxc * 7))), 1) + 1));
   return {
-    T: { noGrid: 1, rich: rich, w: w, h: h, m: [[1, 1, 1, maxc], [totRow, 1, totRow, 6]].concat(nMerge), s: S, c: c, imgs: [], maxr: maxr, maxc: maxc, page: { orient: 'landscape', scale: 100, fitH: 0 } },
+    T: { noGrid: 1, rich: rich, w: w, h: h, m: [[1, 1, 1, maxc], [totRow, 1, totRow, 6]].concat(nMerge), s: S, c: c, imgs: [], maxr: maxr, maxc: maxc,
+      page: { orient: 'landscape', scale: 100, fitH: 0, titles: '1:3', freeze: 3, breaks: fmPageBreaks(w, h, nB, totRow, maxr) } },
     v: v
   };
 }
@@ -9298,6 +9322,9 @@ function xWrite(wb, name, T, vals, fx, imgCache) {
     if (st[11] && st[11] !== 'General') x.numFmt = st[11];
   });
   T.m.forEach(m => { if (ws.mergeCellsWithoutStyle) ws.mergeCellsWithoutStyle(m[0], m[1], m[2], m[3]); else ws.mergeCells(m[0], m[1], m[2], m[3]); });
+  if (T.page && T.page.titles) ws.pageSetup.printTitlesRow = T.page.titles;
+  if (T.page && T.page.freeze) ws.views = [{ state: 'frozen', ySplit: T.page.freeze, topLeftCell: 'A' + (T.page.freeze + 1), showGridLines: false }];
+  if (T.page && T.page.breaks) T.page.breaks.forEach(r => { try { ws.getRow(r).addPageBreak(); } catch (e) { } });
   const W = T.w.map(sobPx);
   (T.imgs || []).forEach(im => {
     const key = im.b64.length + ':' + im.b64.slice(0, 40);

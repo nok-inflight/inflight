@@ -43,6 +43,7 @@ details summary { cursor: pointer; font-weight: 700; color: var(--gold2); }
 input.ro { opacity: .75; }
 button.sm { padding: 5px 10px; font-size: 13px; } button.add { width: 100%; margin-top: 2px; }
 .card h2 small { font-weight: 400; }
+label.lb { margin-top: 0; font-weight: 600; color: var(--mut); }
 </style>
 </head>
 <body>
@@ -93,19 +94,20 @@ function optsHtml(L, r) {
     var l = L.filter(function (x) { return x.cat === c[0] && hit(x); });
     if (l.length) h += '<optgroup label="' + esc(c[1]) + '">' + l.map(function (x) { return '<option value="' + x.id + '"' + (x.id === r.id ? ' selected' : '') + '>' + esc(label(x)) + '</option>'; }).join('') + '</optgroup>';
   });
-  if (S.t === 'in') h += '<option value="' + NEW + '"' + (r.id === NEW ? ' selected' : '') + '>➕ สินค้าใหม่ (ยังไม่มีในระบบ)</option>';
+  h += '<option value="' + NEW + '"' + (r.id === NEW ? ' selected' : '') + '>' + (S.t === 'in' ? '➕ สินค้าใหม่ (ยังไม่มีในระบบ)' : '➕ สินค้าอื่น (ไม่มีในรายการ)') + '</option>';
   return h;
 }
 function rowHtml(L, r, i) {
   var it = itemOf(r.id), isNew = r.id === NEW;
-  var h = '<div class="itm' + (isNew ? ' new' : '') + '"><div class="itmh"><b>รายการที่ ' + (i + 1) + '</b>' + (isNew ? '<span class="nb">🆕 สินค้าใหม่</span>' : '') + (S.rows.length > 1 ? '<button type="button" class="sec sm fX" data-i="' + i + '">✕ ลบ</button>' : '') + '</div>' +
-    '<input class="fS" data-i="' + i + '" placeholder="🔍 ค้นหา SKU / ชื่อสินค้า" value="' + esc(r.f || '') + '">' +
+  var h = '<div class="itm' + (isNew ? ' new' : '') + '"><div class="itmh"><b>รายการที่ ' + (i + 1) + '</b>' + (isNew ? '<span class="nb">🆕 ' + (S.t === 'in' ? 'สินค้าใหม่' : 'ไม่มีในรายการ') + '</span>' : '') + (S.rows.length > 1 ? '<button type="button" class="sec sm fX" data-i="' + i + '">✕ ลบ</button>' : '') + '</div>' +
+    '<label class="lb">🔍 ค้นหา SKU / ชื่อสินค้า</label><input class="fS" data-i="' + i + '" value="' + esc(r.f || '') + '">' +
+    '<label class="lb">สินค้า <span class="req">*</span></label>' +
     '<select class="fI" data-i="' + i + '">' + optsHtml(L, r) + '</select>';
-  if (isNew) h += '<div class="g2"><div><label>SKU</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '" placeholder="ถ้ามี"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select></div></div>' +
-    '<label>ชื่อสินค้าใหม่ <span class="req">*</span></label><input class="fNm" data-i="' + i + '" value="' + esc(r.name) + '" placeholder="ชื่อสินค้า / รุ่น / ขนาด">';
+  if (isNew) h += '<div class="g2"><div><label>SKU</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select></div></div>' +
+    '<label>ชื่อสินค้า' + (S.t === 'in' ? 'ใหม่' : '') + ' <span class="req">*</span></label><input class="fNm" data-i="' + i + '" value="' + esc(r.name) + '">';
   else if (it) h += '<div class="hint" style="margin-top:4px">SKU: <b>' + esc(it.sku || '-') + '</b> · หมวด ' + esc((catsOf(L).filter(function (c) { return c[0] === it.cat; })[0] || ['', it.cat])[1]) + '</div>';
-  h += '<div class="g2"><div><label>จำนวน <span class="req">*</span></label><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" value="' + esc(r.q) + '" placeholder="0"></div>' +
-    '<div><label>หน่วยนับ</label>' + (isNew ? '<input class="fU" data-i="' + i + '" value="' + esc(r.unit) + '" placeholder="ชิ้น / กล่อง / แพ็ค">' : '<input value="' + esc(it ? it.unit || '-' : '') + '" readonly class="ro" placeholder="เลือกสินค้าก่อน">') + '</div></div></div>';
+  h += '<div class="g2"><div><label>จำนวน <span class="req">*</span></label><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" value="' + esc(r.q) + '"></div>' +
+    '<div><label>หน่วยนับ</label>' + (isNew ? '<input class="fU" data-i="' + i + '" value="' + esc(r.unit) + '">' : '<input value="' + esc(it ? it.unit || '-' : '') + '" readonly class="ro">') + '</div></div></div>';
   return h;
 }
 function keep() {
@@ -116,24 +118,23 @@ function keep() {
 }
 function draw() {
   var L = S.items.filter(function (x) { return x.kind === S.kind; }), w = S.t === 'in' ? 'รับเข้า' : 'เบิก';
-  if (S.t !== 'in') S.rows.forEach(function (r) { if (r.id === NEW) r.id = ''; });
   var seg = function (id, o, v) { return '<div class="seg" id="' + id + '">' + o.map(function (x) { return '<button type="button" data-v="' + x[0] + '" class="' + (v === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
   var nOk = S.rows.filter(function (r) { return (r.id && r.id !== NEW || (r.id === NEW && String(r.name).trim())) && Number(r.q) > 0; }).length;
   $('app').innerHTML =
     '<div class="card"><h2>1 · ประเภทคำขอ</h2>' + seg('sT', [['out', '📤 เบิกสินค้า'], ['in', '📥 รับเข้าสินค้า']], S.t) + seg('sK', [['dom', 'DOM'], ['inter', 'INTER']], S.kind) +
     '<label>วันที่' + w + ' <span class="req">*</span></label><input type="date" id="fD" value="' + (S.d || today()) + '"></div>' +
     '<div class="card"><h2>2 · รายการสินค้าที่' + w + ' <small class="hint">(' + S.rows.length + ' รายการ · วันเดียวกัน)</small></h2>' +
-    (L.length || S.t === 'in' ? S.rows.map(function (r, i) { return rowHtml(L, r, i); }).join('') + '<button type="button" class="sec add" id="bAdd">+ เพิ่มสินค้า (รายการที่ ' + (S.rows.length + 1) + ')</button>' +
-      (S.t === 'in' ? '<div class="hint" style="margin-top:6px">ถ้าสินค้าที่รับเข้ายังไม่มีในรายการ เลือก "➕ สินค้าใหม่" ระบบจะเพิ่มเป็นสินค้าใหม่ให้เมื่อเจ้าหน้าที่อนุมัติ</div>' : '')
+    (true ? S.rows.map(function (r, i) { return rowHtml(L, r, i); }).join('') + '<button type="button" class="sec add" id="bAdd">+ เพิ่มสินค้า (รายการที่ ' + (S.rows.length + 1) + ')</button>' +
+      '<div class="hint" style="margin-top:6px">' + (S.t === 'in' ? 'ถ้าสินค้าที่รับเข้ายังไม่มีในรายการ เลือก "➕ สินค้าใหม่" ระบบจะเพิ่มเป็นสินค้าใหม่ให้เมื่อเจ้าหน้าที่อนุมัติ' : 'ถ้าสินค้าที่จะเบิกไม่มีในรายการ เลือก "➕ สินค้าอื่น" แล้วกรอกชื่อ เจ้าหน้าที่จะตรวจและเพิ่มสินค้านี้เข้าระบบ (ยังไม่ตัด Stock เพราะยังไม่มีในคลัง)') + '</div>'
       : '<span class="hint">ยังไม่มีรายการสินค้าของ ' + S.kind.toUpperCase() + '</span>') +
-    '<label>รายละเอียด / หมายเหตุ</label><textarea id="fN" rows="2" placeholder="เช่น ใช้สำหรับเที่ยวบิน DD123">' + esc(S.note) + '</textarea></div>' +
+    '<label>รายละเอียด / หมายเหตุ</label><textarea id="fN" rows="2">' + esc(S.note) + '</textarea></div>' +
     '<div class="card"><h2>3 · ข้อมูลผู้' + w + '</h2><label>ชื่อ - นามสกุล <span class="req">*</span></label><input id="fName" autocomplete="name" value="' + esc(S.name) + '">' +
     '<label>หน่วยงาน <span class="req">*</span></label><input id="fDept" value="' + esc(S.dept) + '"><label>เบอร์โทร</label><input id="fTel" inputmode="tel" value="' + esc(S.tel) + '"></div>' +
     '<div class="card"><h2>4 · รูปภาพ <span class="req">* บังคับ</span></h2><div class="btns"><button type="button" id="bCam">📷 ถ่ายรูป</button><button type="button" class="sec" id="bPic">🖼 เลือกรูป</button></div>' +
     '<input type="file" id="f1" accept="image/*" capture="environment" hidden><input type="file" id="f2" accept="image/*" hidden>' +
     '<div class="ph">' + (S.photo ? '<img src="' + S.photo.thumb + '" alt=""><button type="button" class="sec" id="bPx">ลบรูป</button>' : '<span class="hint">ถ่ายรูปสินค้าที่' + w + ' หรือเอกสารประกอบ</span>') + '</div></div>' +
     '<button class="go" id="bGo">ส่งคำขอ' + w + (nOk ? ' (' + nOk + ' รายการ)' : '') + '</button>' +
-    '<div class="card"><details><summary>ตรวจสถานะคำขอ</summary><label>เลขคำขอ</label><input id="fNo" placeholder="เช่น R261020-001"><button type="button" class="sec" id="bChk" style="margin-top:8px">ตรวจสถานะ</button><div class="st" id="stOut"></div></details></div>';
+    '<div class="card"><details><summary>ตรวจสถานะคำขอ</summary><label>เลขคำขอ</label><input id="fNo"><button type="button" class="sec" id="bChk" style="margin-top:8px">ตรวจสถานะ</button><div class="st" id="stOut"></div></details></div>';
   each('#sT button', function (b) { b.onclick = function () { keep(); S.t = b.dataset.v; draw(); }; });
   each('#sK button', function (b) { b.onclick = function () { keep(); if (S.kind !== b.dataset.v) S.rows = [blankRow()]; S.kind = b.dataset.v; draw(); }; });
   if ($('bAdd')) $('bAdd').onclick = function () { keep(); S.rows.push(blankRow()); draw(); var l = document.querySelectorAll('.itm'); if (l.length) l[l.length - 1].scrollIntoView({ block: 'center' }); };

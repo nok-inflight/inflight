@@ -35,6 +35,14 @@ button.sec { background: #8b8270; } button:disabled { opacity: .6; }
 #busy { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: none; align-items: center; justify-content: center; z-index: 8; color: #fff; font-weight: 700; }
 details summary { cursor: pointer; font-weight: 700; color: var(--gold2); }
 .st { margin-top: 8px; font-size: 14px; }
+.itm { border: 1px solid var(--line); border-radius: 12px; padding: 10px; margin-bottom: 10px; background: var(--bg); }
+.itm.new { border-color: var(--gold); border-style: dashed; }
+.itmh { display: flex; align-items: center; gap: 8px; margin-bottom: 6px; } .itmh b { flex: 1; } .nb { font-size: 12px; background: var(--yel); color: #3a2a00; border-radius: 10px; padding: 2px 8px; }
+.itm input, .itm select { background: var(--card); margin-bottom: 6px; }
+.g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; } .g2 label { margin-top: 2px; }
+input.ro { opacity: .75; }
+button.sm { padding: 5px 10px; font-size: 13px; } button.add { width: 100%; margin-top: 2px; }
+.card h2 small { font-weight: 400; }
 </style>
 </head>
 <body>
@@ -45,8 +53,11 @@ details summary { cursor: pointer; font-weight: 700; color: var(--gold2); }
 // แบบฟอร์มสาธารณะ (ไม่ต้องล็อกอิน) · ส่งคำขอเข้า Inflight › Stock สินค้า › คำขอเบิก
 var API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
 var CATS = [['crew', 'ของใช้ลูกเรือ'], ['cabin', 'ของใช้บนเครื่อง'], ['fb', 'F&B'], ['mer', 'MERCHANDISE']];
-var S = { items: [], t: 'out', kind: 'dom', rows: [{ id: '', q: '' }], photo: null, d: '', note: '', name: '', dept: '', tel: '' };
+var NEW = '__new';
+function blankRow() { return { id: '', q: '', f: '', sku: '', name: '', unit: '', cat: 'fb' }; }
+var S = { items: [], t: 'out', kind: 'dom', rows: [blankRow()], photo: null, d: '', note: '', name: '', dept: '', tel: '' };
 function $(id) { return document.getElementById(id); }
+function each(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
 function today() { var d = new Date(); return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0'); }
 var tT;
@@ -70,35 +81,73 @@ function shrink(file, max, q) {
     r.onerror = function () { ko(new Error('อ่านไฟล์ไม่ได้')); }; r.readAsDataURL(file);
   });
 }
+function itemOf(id) { return S.items.filter(function (x) { return x.id === id; })[0]; }
+function catsOf(L) { var c = CATS.slice(); L.forEach(function (x) { if (x.cat && !c.some(function (k) { return k[0] === x.cat; })) c.push([x.cat, x.cat]); }); return c; }
+function label(x) { return (x.sku ? x.sku + ' · ' : '') + x.name + (x.unit ? ' (' + x.unit + ')' : ''); }
+// ตัวเลือกสินค้าของแถว (กรองด้วยคำค้น SKU / ชื่อ)
+function optsHtml(L, r) {
+  var f = String(r.f || '').trim().toLowerCase();
+  var hit = function (x) { return !f || (x.sku + ' ' + x.name).toLowerCase().indexOf(f) >= 0 || x.id === r.id; };
+  var h = '<option value="">— เลือกสินค้า' + (f ? ' (ค้นหา: ' + esc(r.f) + ')' : '') + ' —</option>';
+  catsOf(L).forEach(function (c) {
+    var l = L.filter(function (x) { return x.cat === c[0] && hit(x); });
+    if (l.length) h += '<optgroup label="' + esc(c[1]) + '">' + l.map(function (x) { return '<option value="' + x.id + '"' + (x.id === r.id ? ' selected' : '') + '>' + esc(label(x)) + '</option>'; }).join('') + '</optgroup>';
+  });
+  if (S.t === 'in') h += '<option value="' + NEW + '"' + (r.id === NEW ? ' selected' : '') + '>➕ สินค้าใหม่ (ยังไม่มีในระบบ)</option>';
+  return h;
+}
+function rowHtml(L, r, i) {
+  var it = itemOf(r.id), isNew = r.id === NEW;
+  var h = '<div class="itm' + (isNew ? ' new' : '') + '"><div class="itmh"><b>รายการที่ ' + (i + 1) + '</b>' + (isNew ? '<span class="nb">🆕 สินค้าใหม่</span>' : '') + (S.rows.length > 1 ? '<button type="button" class="sec sm fX" data-i="' + i + '">✕ ลบ</button>' : '') + '</div>' +
+    '<input class="fS" data-i="' + i + '" placeholder="🔍 ค้นหา SKU / ชื่อสินค้า" value="' + esc(r.f || '') + '">' +
+    '<select class="fI" data-i="' + i + '">' + optsHtml(L, r) + '</select>';
+  if (isNew) h += '<div class="g2"><div><label>SKU</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '" placeholder="ถ้ามี"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '</select></div></div>' +
+    '<label>ชื่อสินค้าใหม่ <span class="req">*</span></label><input class="fNm" data-i="' + i + '" value="' + esc(r.name) + '" placeholder="ชื่อสินค้า / รุ่น / ขนาด">';
+  else if (it) h += '<div class="hint" style="margin-top:4px">SKU: <b>' + esc(it.sku || '-') + '</b> · หมวด ' + esc((catsOf(L).filter(function (c) { return c[0] === it.cat; })[0] || ['', it.cat])[1]) + '</div>';
+  h += '<div class="g2"><div><label>จำนวน <span class="req">*</span></label><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" value="' + esc(r.q) + '" placeholder="0"></div>' +
+    '<div><label>หน่วยนับ</label>' + (isNew ? '<input class="fU" data-i="' + i + '" value="' + esc(r.unit) + '" placeholder="ชิ้น / กล่อง / แพ็ค">' : '<input value="' + esc(it ? it.unit || '-' : '') + '" readonly class="ro" placeholder="เลือกสินค้าก่อน">') + '</div></div></div>';
+  return h;
+}
 function keep() {
   if (!$('fD')) return;
   S.d = $('fD').value; S.note = $('fN').value; S.name = $('fName').value; S.dept = $('fDept').value; S.tel = $('fTel').value;
-  Array.prototype.forEach.call(document.querySelectorAll('.fI'), function (x) { S.rows[x.dataset.i].id = x.value; });
-  Array.prototype.forEach.call(document.querySelectorAll('.fQ'), function (x) { S.rows[x.dataset.i].q = x.value; });
+  var put = function (cls, k) { each('.' + cls, function (x) { S.rows[x.dataset.i][k] = x.value; }); };
+  put('fI', 'id'); put('fQ', 'q'); put('fS', 'f'); put('fSku', 'sku'); put('fNm', 'name'); put('fU', 'unit'); put('fCat', 'cat');
 }
 function draw() {
   var L = S.items.filter(function (x) { return x.kind === S.kind; }), w = S.t === 'in' ? 'รับเข้า' : 'เบิก';
-  // หมวดมาตรฐาน + หมวดที่เจ้าหน้าที่เพิ่มเอง (ชื่อหมวดคือค่า cat)
-  var cats = CATS.slice(); L.forEach(function (x) { if (x.cat && !cats.some(function (c) { return c[0] === x.cat; })) cats.push([x.cat, x.cat]); });
-  var opt = function (sel) { return '<option value="">— เลือกสินค้า —</option>' + cats.map(function (c) { var l = L.filter(function (x) { return x.cat === c[0]; }); return l.length ? '<optgroup label="' + esc(c[1]) + '">' + l.map(function (x) { return '<option value="' + x.id + '"' + (x.id === sel ? ' selected' : '') + '>' + esc(x.name) + (x.unit ? ' (' + esc(x.unit) + ')' : '') + '</option>'; }).join('') + '</optgroup>' : ''; }).join(''); };
+  if (S.t !== 'in') S.rows.forEach(function (r) { if (r.id === NEW) r.id = ''; });
   var seg = function (id, o, v) { return '<div class="seg" id="' + id + '">' + o.map(function (x) { return '<button type="button" data-v="' + x[0] + '" class="' + (v === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
+  var nOk = S.rows.filter(function (r) { return (r.id && r.id !== NEW || (r.id === NEW && String(r.name).trim())) && Number(r.q) > 0; }).length;
   $('app').innerHTML =
     '<div class="card"><h2>1 · ประเภทคำขอ</h2>' + seg('sT', [['out', '📤 เบิกสินค้า'], ['in', '📥 รับเข้าสินค้า']], S.t) + seg('sK', [['dom', 'DOM'], ['inter', 'INTER']], S.kind) +
     '<label>วันที่' + w + ' <span class="req">*</span></label><input type="date" id="fD" value="' + (S.d || today()) + '"></div>' +
-    '<div class="card"><h2>2 · รายการสินค้าที่' + w + '</h2>' + (L.length ? S.rows.map(function (r, i) { return '<div class="row"><select class="fI" data-i="' + i + '">' + opt(r.id) + '</select><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" placeholder="จำนวน" value="' + esc(r.q) + '">' + (S.rows.length > 1 ? '<button type="button" class="sec fX" data-i="' + i + '">✕</button>' : '<span></span>') + '</div>'; }).join('') +
-      '<button type="button" class="sec" id="bAdd">+ เพิ่มรายการ</button>' : '<span class="hint">ยังไม่มีรายการสินค้าของ ' + S.kind.toUpperCase() + '</span>') +
+    '<div class="card"><h2>2 · รายการสินค้าที่' + w + ' <small class="hint">(' + S.rows.length + ' รายการ · วันเดียวกัน)</small></h2>' +
+    (L.length || S.t === 'in' ? S.rows.map(function (r, i) { return rowHtml(L, r, i); }).join('') + '<button type="button" class="sec add" id="bAdd">+ เพิ่มสินค้า (รายการที่ ' + (S.rows.length + 1) + ')</button>' +
+      (S.t === 'in' ? '<div class="hint" style="margin-top:6px">ถ้าสินค้าที่รับเข้ายังไม่มีในรายการ เลือก "➕ สินค้าใหม่" ระบบจะเพิ่มเป็นสินค้าใหม่ให้เมื่อเจ้าหน้าที่อนุมัติ</div>' : '')
+      : '<span class="hint">ยังไม่มีรายการสินค้าของ ' + S.kind.toUpperCase() + '</span>') +
     '<label>รายละเอียด / หมายเหตุ</label><textarea id="fN" rows="2" placeholder="เช่น ใช้สำหรับเที่ยวบิน DD123">' + esc(S.note) + '</textarea></div>' +
     '<div class="card"><h2>3 · ข้อมูลผู้' + w + '</h2><label>ชื่อ - นามสกุล <span class="req">*</span></label><input id="fName" autocomplete="name" value="' + esc(S.name) + '">' +
     '<label>หน่วยงาน <span class="req">*</span></label><input id="fDept" value="' + esc(S.dept) + '"><label>เบอร์โทร</label><input id="fTel" inputmode="tel" value="' + esc(S.tel) + '"></div>' +
     '<div class="card"><h2>4 · รูปภาพ <span class="req">* บังคับ</span></h2><div class="btns"><button type="button" id="bCam">📷 ถ่ายรูป</button><button type="button" class="sec" id="bPic">🖼 เลือกรูป</button></div>' +
     '<input type="file" id="f1" accept="image/*" capture="environment" hidden><input type="file" id="f2" accept="image/*" hidden>' +
     '<div class="ph">' + (S.photo ? '<img src="' + S.photo.thumb + '" alt=""><button type="button" class="sec" id="bPx">ลบรูป</button>' : '<span class="hint">ถ่ายรูปสินค้าที่' + w + ' หรือเอกสารประกอบ</span>') + '</div></div>' +
-    '<button class="go" id="bGo">ส่งคำขอ' + w + '</button>' +
+    '<button class="go" id="bGo">ส่งคำขอ' + w + (nOk ? ' (' + nOk + ' รายการ)' : '') + '</button>' +
     '<div class="card"><details><summary>ตรวจสถานะคำขอ</summary><label>เลขคำขอ</label><input id="fNo" placeholder="เช่น R261020-001"><button type="button" class="sec" id="bChk" style="margin-top:8px">ตรวจสถานะ</button><div class="st" id="stOut"></div></details></div>';
-  Array.prototype.forEach.call(document.querySelectorAll('#sT button'), function (b) { b.onclick = function () { keep(); S.t = b.dataset.v; draw(); }; });
-  Array.prototype.forEach.call(document.querySelectorAll('#sK button'), function (b) { b.onclick = function () { keep(); if (S.kind !== b.dataset.v) S.rows = [{ id: '', q: '' }]; S.kind = b.dataset.v; draw(); }; });
-  if ($('bAdd')) $('bAdd').onclick = function () { keep(); S.rows.push({ id: '', q: '' }); draw(); };
-  Array.prototype.forEach.call(document.querySelectorAll('.fX'), function (b) { b.onclick = function () { keep(); S.rows.splice(Number(b.dataset.i), 1); draw(); }; });
+  each('#sT button', function (b) { b.onclick = function () { keep(); S.t = b.dataset.v; draw(); }; });
+  each('#sK button', function (b) { b.onclick = function () { keep(); if (S.kind !== b.dataset.v) S.rows = [blankRow()]; S.kind = b.dataset.v; draw(); }; });
+  if ($('bAdd')) $('bAdd').onclick = function () { keep(); S.rows.push(blankRow()); draw(); var l = document.querySelectorAll('.itm'); if (l.length) l[l.length - 1].scrollIntoView({ block: 'center' }); };
+  each('.fX', function (b) { b.onclick = function () { keep(); S.rows.splice(Number(b.dataset.i), 1); draw(); }; });
+  each('.fI', function (x) { x.onchange = function () { keep(); draw(); }; });
+  each('.fS', function (x) {
+    x.oninput = function () {
+      var i = Number(x.dataset.i), r = S.rows[i]; r.f = x.value;
+      var sel = document.querySelector('.fI[data-i="' + i + '"]'); r.id = sel.value;
+      sel.innerHTML = optsHtml(S.items.filter(function (y) { return y.kind === S.kind; }), r);
+      var only = Array.prototype.filter.call(sel.options, function (o) { return o.value && o.value !== NEW; });
+      if (only.length === 1 && !r.id) { sel.value = only[0].value; keep(); draw(); var n = document.querySelector('.fQ[data-i="' + i + '"]'); if (n) n.focus(); }
+    };
+  });
   var pick = async function (inp) {
     var f = inp.files[0]; inp.value = ''; if (!f) return; keep();
     if (!/^image\//.test(f.type)) { toast('ไฟล์ต้องเป็นรูปภาพ'); return; }
@@ -113,7 +162,16 @@ function draw() {
   };
   $('bGo').onclick = async function () {
     keep();
-    var items = S.rows.filter(function (r) { return r.id && Number(r.q) > 0; }).map(function (r) { return { id: r.id, q: Math.floor(Number(r.q)) }; });
+    var items = [], bad = '';
+    S.rows.forEach(function (r, i) {
+      var q = Math.floor(Number(r.q) || 0);
+      if (!r.id && !q) return;
+      if (!r.id) { bad = bad || 'รายการที่ ' + (i + 1) + ': เลือกสินค้า'; return; }
+      if (!(q > 0)) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่จำนวน'; return; }
+      if (r.id === NEW) { if (!String(r.name).trim()) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่ชื่อสินค้าใหม่'; return; } items.push({ new: 1, sku: r.sku, name: r.name, unit: r.unit, cat: r.cat, q: q }); }
+      else items.push({ id: r.id, q: q });
+    });
+    if (bad) { toast(bad); return; }
     if (!items.length) { toast('เลือกสินค้าและใส่จำนวนอย่างน้อย 1 รายการ'); return; }
     if (S.name.trim().length < 3) { toast('ใส่ชื่อ - นามสกุล'); $('fName').focus(); return; }
     if (!S.dept.trim()) { toast('ใส่หน่วยงาน'); $('fDept').focus(); return; }
@@ -123,8 +181,8 @@ function draw() {
       busy(true, 'กำลังส่งคำขอและอัปโหลดรูป...');
       var r = await api('ioPubIStockReq', [{ kind: S.kind, t: S.t, d: S.d, items: items, name: S.name, dept: S.dept, phone: S.tel, note: S.note }, S.photo]);
       window.scrollTo(0, 0);
-      $('app').innerHTML = '<div class="card ok"><div class="big">✅</div><h2>ส่งคำขอแล้ว</h2><div class="hint">เลขคำขอ</div><div class="no">' + esc(r.no) + '</div><p class="hint">จดเลขนี้ไว้ตรวจสถานะ · เจ้าหน้าที่ Inflight จะตรวจและอนุมัติ</p><button id="bNew">ส่งคำขอใหม่</button></div>';
-      $('bNew').onclick = function () { S.rows = [{ id: '', q: '' }]; S.photo = null; S.note = ''; draw(); };
+      $('app').innerHTML = '<div class="card ok"><div class="big">✅</div><h2>ส่งคำขอแล้ว (' + items.length + ' รายการ)</h2><div class="hint">เลขคำขอ</div><div class="no">' + esc(r.no) + '</div><p class="hint">จดเลขนี้ไว้ตรวจสถานะ · เจ้าหน้าที่ Inflight จะตรวจและอนุมัติ</p><button id="bNew">ส่งคำขอใหม่</button></div>';
+      $('bNew').onclick = function () { S.rows = [blankRow()]; S.photo = null; S.note = ''; draw(); };
     } catch (e) { toast(e.message); if ($('bGo')) $('bGo').disabled = false; } finally { busy(false); }
   };
 }

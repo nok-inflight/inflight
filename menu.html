@@ -560,22 +560,62 @@ function itemSheet(n, hs) {
 var TK = null;
 function tkHtml() {
   if (!TK) return '';
-  return '<div class="tk"><img src="' + TK.thumb + '" alt=""><div>' + (TK.flight ? '<div>✈ <b>' + esc(TK.flight) + '</b></div>' : '') + (TK.seat ? '<div>' + (L === 'th' ? 'ที่นั่ง' : 'Seat') + ' <b>' + esc(TK.seat) + '</b></div>' : '') + (TK.name ? '<div>' + esc(TK.name) + '</div>' : '') +
-    (!TK.flight && !TK.seat && !TK.name ? '<div class="mut">' + (L === 'th' ? 'อ่านข้อมูลบนตั๋วไม่ได้ · กรอกเลขที่นั่งเอง' : 'Could not read the pass · enter your seat') + '</div>' : '') + '</div></div>';
+  var th = L === 'th';
+  return '<div class="tk"><img src="' + TK.thumb + '" alt=""><div>' + (TK.flight ? '<div>✈ <b>' + esc(TK.flight) + '</b>' + (TK.route ? ' · ' + esc(TK.route) : '') + (TK.date ? ' · ' + esc(TK.date) : '') + '</div>' : '') + (TK.seat ? '<div>' + (th ? 'ที่นั่ง' : 'Seat') + ' <b>' + esc(TK.seat) + '</b></div>' : '') + (TK.name ? '<div>' + esc(TK.name) + '</div>' : '') +
+    (!TK.flight && !TK.seat ? '<div class="mut">' + (th ? 'อ่านข้อมูลบนตั๋วไม่ได้ · กรอกเลขที่นั่งเอง' : 'Could not read the pass · enter your seat') + (TK.err ? '<br><small>(' + esc(TK.err) + ')</small>' : '') + '</div>' : '') + '</div></div>';
 }
+// อ่านข้อความจากตั๋ว (OCR) · รองรับรูปแบบตั๋ว Nok Air ที่หัวข้ออยู่บรรทัดหนึ่ง ค่าอยู่บรรทัดถัดไป เช่น "SEAT:" / "22C/AISLE"
 function tkParse(t) {
   t = String(t || '').toUpperCase().replace(/\r/g, '');
   var o = {}, m;
-  m = t.match(/(?:SEAT|ที่นั่ง)\s*(?:NO\.?)?\s*[:\-]?\s*\n?\s*(\d{1,2}\s?[A-K])\b/); if (m) o.seat = m[1].replace(/\s/g, '');
-  m = t.match(/\b(DD|SL|FD|WE|TG|PG)\s?(\d{2,4})\b/); if (m) o.flight = m[1] + m[2];
-  m = t.match(/\b([A-Z]{2,})\s?\/\s?([A-Z]{2,}(?: [A-Z]+)*?)(?:\s+(MR|MRS|MS|MISS|MSTR))?\b/); if (m) o.name = (m[3] ? m[3] + ' ' : '') + m[2] + ' ' + m[1];
+  m = t.match(/\b([1-9]\d?)\s?([A-K])\s*\/\s*(AISLE|WINDOW|WIN|MIDDLE|MID)/);
+  if (!m) m = t.match(/(?:SEAT|ที่นั่ง)\s*(?:NO\.?)?\s*[:\-]?\s*([1-9]\d?)\s?([A-K])\b/);
+  if (m) o.seat = m[1] + m[2];
+  else {
+    var cnt = {}, best = '', re = /(?:^|[^A-Z0-9])([1-9]\d?)([A-F])(?![A-Z0-9])/g;
+    while ((m = re.exec(t))) { var k = m[1] + m[2]; cnt[k] = (cnt[k] || 0) + 1; if (!best || cnt[k] > cnt[best]) best = k; }
+    if (best && /SEAT|ที่นั่ง/.test(t)) o.seat = best;
+  }
+  m = t.match(/\b(D[D0O])\s?(\d{2,4})\b/) || t.match(/\b(SL|FD|WE|TG|PG)\s?(\d{2,4})\b/); if (m) o.flight = m[1].replace(/[0O]/, 'D') + m[2];
+  m = t.match(/\b([0-3]\d)\s?(JAN|FEB|MAR|APR|MAY|JUN|JUL|AUG|SEP|OCT|NOV|DEC)\s?(\d{2})\b/); if (m) o.date = m[1] + m[2] + m[3];
+  var ap = [], re2 = /\b([A-Z]{3})\s*\/\s*[A-Z]{3,}/g;
+  while ((m = re2.exec(t)) && ap.length < 2) { if (ap.indexOf(m[1]) < 0) ap.push(m[1]); }
+  if (ap.length === 2) o.route = ap.join('-');
+  m = t.match(/NAME\s*:?\s*\n?\s*([A-Z]{2,})\s?\/\s?([A-Z]{2,}(?: [A-Z]+)*?)(?:\s+(MR|MRS|MS|MISS|MSTR))?\b/); if (m) o.name = (m[3] ? m[3] + ' ' : '') + m[2] + ' ' + m[1];
   return o;
 }
+// บาร์โค้ดบนบัตรขึ้นเครื่อง (มาตรฐาน IATA BCBP เช่น "M1NAME/FIRST  EABC123 DMKKBVDD 0546 090Y022C0011 ...")
+function tkBcbp(raw) {
+  var s = String(raw || ''); if (!/^M[1-9]/.test(s) || s.length < 58) return null;
+  var o = {}, nm = s.slice(2, 22).trim().split('/');
+  o.name = nm.length > 1 ? (nm[1] + ' ' + nm[0]).trim() : nm[0];
+  o.route = s.slice(30, 33) + '-' + s.slice(33, 36);
+  o.flight = s.slice(36, 39).trim() + String(Number(s.slice(39, 43)) || s.slice(39, 44).trim());
+  var st = s.slice(48, 52).replace(/^0+/, ''); if (/^\d{1,2}[A-K]$/.test(st)) o.seat = st;
+  return o;
+}
+function tkImg(src) { return new Promise(function (ok, ko) { var im = new Image(); im.onload = function () { ok(im); }; im.onerror = ko; im.src = src; }); }
+function tkRot(im, dir) {
+  var c = document.createElement('canvas'); c.width = im.height; c.height = im.width; var g = c.getContext('2d');
+  g.translate(c.width / 2, c.height / 2); g.rotate(dir * Math.PI / 2); g.drawImage(im, -im.width / 2, -im.height / 2);
+  return c.toDataURL('image/jpeg', .85);
+}
 async function scanTicket() {
-  var r = await DocScan.open({ title: L === 'th' ? 'สแกนตั๋ว / บัตรขึ้นเครื่อง' : 'Scan boarding pass', max: 1, pdf: false, mode: 'color', okText: L === 'th' ? 'เสร็จ · อ่านข้อมูล' : 'Done · read', ocr: function (pages) { return api('ioPubOcr', [pages], 60000); } });
+  var th = L === 'th', bc = null;
+  var r = await DocScan.open({ title: th ? 'สแกนตั๋ว / บัตรขึ้นเครื่อง' : 'Scan boarding pass', hint: th ? 'ถ่ายตั๋วให้เห็นทั้งใบ ตัวหนังสือชัด (ถ่ายแนวตั้งหรือแนวนอนก็ได้)' : 'Take a clear photo of the whole pass', max: 1, pdf: false, mode: 'color', okText: th ? 'เสร็จ · อ่านข้อมูล' : 'Done · read',
+    ocr: async function (pages) {
+      var src = 'data:image/jpeg;base64,' + pages[0].b64, im = await tkImg(src);
+      // 1) บาร์โค้ด (อ่านในเครื่อง ไม่ต้องใช้เน็ต · Chrome บน Android)
+      try { if (window.BarcodeDetector) { var ds = await new BarcodeDetector({ formats: ['pdf417', 'aztec', 'qr_code', 'data_matrix'] }).detect(im); for (var i = 0; i < ds.length && !bc; i++) bc = tkBcbp(ds[i].rawValue); } } catch (e) { }
+      if (bc && bc.seat) return '';
+      // 2) OCR · ถ้ารูปเป็นแนวตั้ง (ตั๋วถูกถ่ายตะแคง) ส่งรูปหมุนซ้ายและขวาไปอ่านทั้งคู่
+      var send = im.height > im.width * 1.1 ? [tkRot(im, -1), tkRot(im, 1)] : [src];
+      return api('ioPubOcr', [send.map(function (u) { return { b64: u.split(',')[1], mime: 'image/jpeg' }; })], 60000);
+    } });
   if (!r) return;
   var p = tkParse(r.text);
-  TK = { thumb: r.thumbs[0], seat: p.seat || '', flight: p.flight || '', name: p.name || '', text: r.text };
+  if (bc) Object.keys(bc).forEach(function (k) { if (bc[k]) p[k] = bc[k]; });
+  TK = { thumb: r.thumbs[0], seat: p.seat || '', flight: p.flight || '', name: p.name || '', route: p.route || '', date: p.date || '', text: r.text, err: r.ocrError || '' };
   if ($('ov').className === 'ov on' && $('ok')) openOrder();
 }
 function fit() {

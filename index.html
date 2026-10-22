@@ -163,6 +163,7 @@
     display: none; z-index: 20; box-shadow: 0 2px 8px rgba(0,0,0,.3); }
   #toast.ok { background: #2e7d32; }
   .miss { border-color: #c0392b !important; background: #fff0f0; }
+  .lqr { margin-top: 18px; padding-top: 14px; border-top: 1px dashed #d9cba3; text-align: center; } .lqr #lgQr { width: 150px; height: 150px; margin: 0 auto 6px; background: #fff; padding: 6px; border-radius: 10px; box-sizing: content-box; } .lqr #lgQr svg { width: 100%; height: 100%; display: block; } .lqr b { display: block; font-size: 13px; } .lqr small { display: block; color: #8a7a55; font-size: 11px; margin-bottom: 6px; } .lqr button { padding: 5px 12px; font-size: 12px; }
   #login { max-width: 320px; margin: 60px auto; background: #fff; padding: 24px; border-radius: 8px; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
   #login h3 { margin: 0 0 8px; text-align: center; }
   #login .lreg { text-align: center; margin-top: 14px; font-size: 13px; }
@@ -782,7 +783,31 @@
   @keyframes hvIn { from { opacity: 0; } to { opacity: 1; } }
 
   /* ===== หน้าหลัก ===== */
-  .home { max-width: 1320px; margin: 0 auto; }
+  .home { max-width: 1320px; margin: 0 auto; } .hcredit { display: none; }
+  /* หน้าหลักพอดีจอ (คอม / แท็บเล็ตแนวนอน): ไม่ต้องเลื่อนขึ้นลง · การ์ดเมนูยืดเต็มพื้นที่ที่เหลือ */
+  @media (min-width: 761px) and (min-height: 560px) {
+    body.homefit #foot { display: none; }
+    body.homefit #shell { height: calc(100vh - 44px); height: calc(100dvh - 44px); min-height: 0; }
+    body.homefit #main { min-height: 0; overflow: hidden; display: flex; flex-direction: column; }
+    body.homefit #app { flex: 1; min-height: 0; width: 100%; box-sizing: border-box; display: flex; flex-direction: column; }
+    body.homefit .home { flex: 1; min-height: 0; width: 100%; display: flex; flex-direction: column; overflow: auto; padding-bottom: 4px; scrollbar-width: thin; }
+    body.homefit .home > * { flex: none; }
+    body.homefit .hero { min-height: 0; height: clamp(100px, 18vh, 220px); padding-top: 12px; padding-bottom: 12px; }
+    body.homefit .htip { margin: 10px 0 2px; padding: 7px 14px; }
+    body.homefit .hstats { margin: 8px 0 0; } body.homefit .hs { padding: 7px 14px; }
+    body.homefit .hsec { margin: 10px 0 6px; }
+    body.homefit .home { max-width: 1680px; }
+    body.homefit .home > .hcards { flex: 1 0 auto; grid-auto-rows: 1fr; align-content: stretch; grid-template-columns: repeat(auto-fit, minmax(max(190px, calc((100% - 48px) / 5)), 1fr)); }
+    body.homefit .hcards .card { align-items: center; text-align: center; padding: 10px 14px !important; }
+    body.homefit .hcards .card .ci { position: static; transform: none; margin: 0 auto 6px; width: clamp(36px, 5vh, 56px); height: clamp(36px, 5vh, 56px); font-size: clamp(18px, 2.6vh, 28px); }
+    body.homefit .hcards .card:hover:not(.soon) .ci { transform: rotate(-8deg) scale(1.1); }
+    body.homefit .hcards .card b { font-size: clamp(15px, 2vh, 20px); margin-bottom: 2px; } body.homefit .hcards .card .cgo { display: none; }
+    body.homefit .hquick, body.homefit .hrecent { flex-wrap: nowrap; overflow-x: auto; padding: 2px 2px 4px; scrollbar-width: thin; } body.homefit .hquick .qa, body.homefit .hrecent .rc { flex: none; white-space: nowrap; }
+    body.homefit .hcards .card small { display: -webkit-box; -webkit-line-clamp: 1; -webkit-box-orient: vertical; overflow: hidden; }
+    body.homefit .hcards .card { display: flex; flex-direction: column; justify-content: center; }
+    body.homefit .hcredit { display: block; text-align: center; font-size: 12px; color: #6b5a2a; padding: 6px 0 30px; } body.homefit .hcredit b { color: #8a6d2f; }
+    html[data-theme="dark"] body.homefit .hcredit { color: #a59d88; } html[data-theme="dark"] body.homefit .hcredit b { color: #d8b45a; }
+  }
   .hero { position: relative; overflow: hidden; border-radius: 14px; padding: 22px 24px; min-height: 120px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;
     background: linear-gradient(120deg, #8a6d2f 0%, #b8902f 45%, #fdc700 100%); color: #fff; box-shadow: 0 6px 18px rgba(138,109,47,.28); animation: hUp .5s ease-out both; }
   .hero .sky { position: absolute; inset: 0; pointer-events: none; }
@@ -1229,6 +1254,7 @@
   <label>รหัสผ่าน<input id="lp" type="password" autocomplete="current-password"></label>
   <button id="bLogin">เข้าสู่ระบบ</button>
   <div class="lreg">ยังไม่มีบัญชีผู้ใช้? <a href="#" id="lnkReg">ลงทะเบียน</a></div>
+  <div class="lqr"><div id="lgQr"></div><b>สแกนเพื่อเปิดเว็บไซต์</b><small>nok-inflight.github.io/inflight</small><button type="button" class="sec" id="lgQrDl">บันทึกรูป QR</button></div>
   </div>
   <div id="rgBox" style="display:none">
   <h3>ลงทะเบียน</h3>
@@ -2291,7 +2317,7 @@ function showHome() {
   (ME.zones || []).forEach((z, i) => {
     h += '<div class="card' + (z.soon ? ' soon' : '') + '" data-z="' + esc(z.id) + '" style="--d:' + i + '"><span class="ci">' + (ZONE_ICO[z.id] || svgI('folder')) + '</span><b>' + esc(T(z.title)) + '</b><small>' + esc(z.soon ? 'เร็วๆ นี้' : z.desc) + '</small>' + (z.soon ? '' : '<span class="cgo">›</span>') + '</div>';
   });
-  h += '</div></div>';
+  h += '</div><div class="hcredit">Inflight Operations &middot; Developed by <b>Warunyoo Borikul</b> (Fluk)</div></div>';
   $('app').innerHTML = h;
   (BOOT || Promise.resolve(null)).then(b => annDraw(b && b.ann)).catch(() => { });
   each('.hcards .card', c => {
@@ -3440,6 +3466,7 @@ function go(id) {
   each('#side button', b => b.classList.toggle('on', b.dataset.z === id));
   if (!ZONE_TOPICS[id]) each('#side .sdsub', x => x.remove());
   $('app').dataset.z = id;
+  document.body.classList.toggle('homefit', id === 'home');
   DV.full = ''; document.body.classList.remove('dvon');
   if (id === 'home') showHome();
   else if (id === 'sales') showSales();
@@ -11958,6 +11985,10 @@ async function exportXlsx() {
 }
 
 $('bLogin').onclick = doLogin;
+// QR หน้าเว็บหลัก (GitHub) ใต้กล่องเข้าสู่ระบบ
+const SITE_URL = 'https://nok-inflight.github.io/inflight/';
+try { $('lgQr').innerHTML = qrSvg(SITE_URL, 150); } catch (e) { }
+$('lgQrDl').onclick = () => qrPngOf(SITE_URL, 'Inflight Operations', 'สแกนเพื่อเปิดเว็บไซต์', 'Nok Air · IFS', 'QR_Inflight_Operations.png').catch(e => toast(e.message));
 const pwOk = p => p.length >= 8 && /[A-Za-z]/.test(p) && /\d/.test(p) && /[^A-Za-z0-9]/.test(p);
 $('lnkReg').onclick = ev => { ev.preventDefault(); $('lgBox').style.display = 'none'; $('rgBox').style.display = ''; $('rgNo').focus(); };
 $('rgExt').onchange = () => { const e = $('rgExt').checked; each('#rgBox .rgEx', x => { x.style.display = e ? '' : 'none'; }); each('#rgBox .rgIn', x => { x.style.display = e ? 'none' : ''; }); };

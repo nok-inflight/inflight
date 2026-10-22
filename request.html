@@ -46,9 +46,10 @@ button.sm { padding: 5px 10px; font-size: 13px; } button.add { width: 100%; marg
 .card h2 small { font-weight: 400; }
 label.lb { margin-top: 0; font-weight: 600; color: var(--mut); }
 </style>
+<style>svg.ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.15em}</style>
 </head>
 <body>
-<header><span class="ico">📦</span><h1>เบิกสินค้า Nok Air</h1><p>แบบฟอร์มคำขอเบิก / รับเข้าสินค้า · เจ้าหน้าที่ Inflight จะตรวจและอนุมัติ</p></header>
+<header><span class="ico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg></span><h1>เบิกสินค้า Nok Air</h1><p>แบบฟอร์มคำขอเบิก / รับเข้าสินค้า · เจ้าหน้าที่ IFS จะตรวจและอนุมัติ</p></header>
 <main id="app"><div class="card"><span class="hint">กำลังโหลดรายการสินค้า...</span></div></main>
 <div id="toast"></div><div id="busy"><span id="busyT">กำลังส่ง...</span></div>
 <script>
@@ -121,6 +122,48 @@ var DocScan = (function () {
     g.putImageData(d, 0, 0); return o;
   }
   function jpg(c, q) { return c.toDataURL('image/jpeg', q || .82); }
+  // รูปสำหรับอ่านข้อความ (OCR): ขาวดำแบบนุ่ม ยืดความต่างสีเล็กน้อย ความละเอียดสูง (อ่านได้ชัดกว่ารูปขาวดำจัด)
+  function gray(c) {
+    var o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
+    var g = o.getContext('2d'); g.drawImage(c, 0, 0);
+    var d = g.getImageData(0, 0, o.width, o.height), p = d.data, hist = new Array(256).fill(0), n = p.length / 4, i;
+    for (i = 0; i < p.length; i += 4) { var l = Math.round(p[i] * .299 + p[i + 1] * .587 + p[i + 2] * .114); p[i] = l; hist[l]++; }
+    var lo = 0, hi = 255, acc = 0; for (i = 0; i < 256; i++) { acc += hist[i]; if (acc > n * .01) { lo = i; break; } }
+    acc = 0; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > n * .01) { hi = i; break; } }
+    var rng = Math.max(40, hi - lo);
+    for (i = 0; i < p.length; i += 4) { var v = Math.round((p[i] - lo) / rng * 255); v = v < 0 ? 0 : v > 255 ? 255 : v; p[i] = p[i + 1] = p[i + 2] = v; }
+    g.putImageData(d, 0, 0); return o;
+  }
+  // ----- ไฟล์ PDF: อ่านข้อความในไฟล์ (pdf.js) + รูปแต่ละหน้า · โหลดตัวอ่านไม่ได้ก็ยังแนบไฟล์และให้เซิร์ฟเวอร์อ่านแทน -----
+  var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  var PDF_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="110" height="150"><rect width="110" height="150" rx="8" fill="#fff"/><rect x="18" y="20" width="74" height="96" rx="4" fill="none" stroke="#c62828" stroke-width="4"/><text x="55" y="136" font-family="sans-serif" font-size="22" font-weight="700" fill="#c62828" text-anchor="middle">PDF</text></svg>');
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js'; s.onload = function () { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); } catch (e) { ko(e); } }; s.onerror = function () { ko(new Error('โหลดตัวอ่าน PDF ไม่ได้')); }; document.head.appendChild(s); });
+  }
+  function tcText(tc) {
+    var out = '', lastY = null;
+    tc.items.forEach(function (it) { if (typeof it.str !== 'string') return; var y = it.transform ? Math.round(it.transform[5]) : 0; if (lastY !== null && Math.abs(y - lastY) > 2) out += '\n'; else if (out && !/\s$/.test(out) && it.str && !/^\s/.test(it.str)) out += ' '; out += it.str; lastY = y; });
+    return out.replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').trim();
+  }
+  function readPdf(f, max) {
+    return readFile(f).then(function (u) {
+      var b64 = String(u).split(',')[1] || '', name = f.name || 'file.pdf';
+      var bin = atob(b64), u8 = new Uint8Array(bin.length); for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+      return loadPdfJs().then(function (lib) { return lib.getDocument({ data: u8 }).promise; }).then(function (doc) {
+        var n = Math.min(doc.numPages, max), pgs = [], texts = [], chain = Promise.resolve();
+        for (var i = 1; i <= n; i++) (function (i) {
+          chain = chain.then(function () { return doc.getPage(i); }).then(function (pg) {
+            var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(3, 2000 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc });
+            var c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+            return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () { return pg.getTextContent(); }).then(function (tc) { texts.push(tcText(tc)); pgs.push(c); });
+          });
+        })(i);
+        return chain.then(function () { return { b64: b64, name: name, canvases: pgs, text: texts.join('\n\n').trim(), total: doc.numPages }; });
+      }, function () { return { b64: b64, name: name, canvases: [], text: '', total: 0, raw: true }; });
+    });
+  }
   function loadJsPdf() {
     if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
     return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload = function () { ok(window.jspdf.jsPDF); }; s.onerror = function () { ko(new Error('โหลดตัวสร้าง PDF ไม่ได้')); }; document.head.appendChild(s); });
@@ -197,37 +240,50 @@ var DocScan = (function () {
       ov.querySelector('#dsOk').onclick = function () { done({ q: q.map(function (p) { return [p[0] / s, p[1] / s]; }), mode: mode }); };
     });
   }
-  function process(pg) { var w = warp(pg.src, pg.q, 1600); var o = pg.mode === 'color' ? w : enhance(w); pg.out = jpg(o, .8); pg.thumb = jpg(fitCanvas(o, 220), .7); return pg; }
+  function process(pg) {
+    var w = pg.pdf ? pg.src : warp(pg.src, pg.q, 2000), s = fitCanvas(w, 1600), o = pg.mode === 'color' ? s : enhance(s);
+    pg.out = jpg(o, .8); pg.thumb = jpg(fitCanvas(o, 220), .7); pg.ocr = jpg(gray(w), .9); return pg;
+  }
   // เปิดหน้าสแกน · opt: { title, max, pdf, ocr(pages b64[]) → Promise(text), hint, okText }
   function open(opt) {
     opt = opt || {}; css();
     return new Promise(function (resolve) {
-      var pages = [], max = opt.max || 10;
+      var pages = [], max = opt.max || 10, pdfSrc = null;
       var ov = el('div', 'dsov');
       var f1 = el('input'); f1.type = 'file'; f1.accept = 'image/*'; f1.setAttribute('capture', 'environment'); f1.style.display = 'none';
-      var f2 = el('input'); f2.type = 'file'; f2.accept = 'image/*'; f2.multiple = true; f2.style.display = 'none';
+      var f2 = el('input'); f2.type = 'file'; f2.accept = opt.pdfOk ? 'image/*,application/pdf,.pdf' : 'image/*'; f2.multiple = true; f2.style.display = 'none';
       document.body.appendChild(ov); ov.appendChild(f1); ov.appendChild(f2);
       function close(v) { ov.remove(); resolve(v); }
       function draw() {
         ov.querySelectorAll('.dsh,.dsbody,.dsf').forEach(function (n) { n.remove(); });
         var h = el('div', 'dsh', '<b>' + (opt.title || 'สแกนเอกสาร') + '</b><button class="dsb sec" id="dsX">ปิด</button>');
         var b = el('div', 'dsbody', (opt.hint ? '<div class="dshint">' + opt.hint + '</div>' : '') +
-          '<div class="dsadd"><button class="dsb" id="dsCam">📷 ถ่าย' + (pages.length ? 'หน้าถัดไป' : 'เอกสาร') + '</button><button class="dsb sec" id="dsPic">🖼 เลือกรูป</button></div>' +
+          '<div class="dsadd"><button class="dsb" id="dsCam">ถ่าย' + (pages.length ? 'หน้าถัดไป' : 'เอกสาร') + '</button><button class="dsb sec" id="dsPic">' + (opt.pdfOk ? 'เลือกรูป / ไฟล์ PDF' : 'เลือกรูป') + '</button></div>' +
+          (pdfSrc ? '<div class="dshint" style="margin-bottom:8px">ไฟล์ PDF: ' + pdfSrc.name.replace(/[<>&]/g, '') + (pdfSrc.total ? ' · ' + pdfSrc.total + ' หน้า' : '') + (pdfSrc.raw ? ' · แนบไฟล์แล้ว (ระบบจะอ่านข้อความให้ตอนกดเสร็จ)' : pdfSrc.text.replace(/\s/g, '').length >= 20 ? ' · มีข้อความในไฟล์' : ' · ไม่มีข้อความในไฟล์ จะอ่านจากรูปแทน') + '</div>' : '') +
           '<div class="dspg">' + pages.map(function (p, i) { return '<div class="pg"><img src="' + p.thumb + '" alt=""><span>หน้า ' + (i + 1) + '</span><div class="ac"><button class="dsb sec" data-e="' + i + '">ตัดขอบ</button><button class="dsb sec" data-d="' + i + '">ลบ</button></div></div>'; }).join('') + '</div>' +
           (pages.length ? '' : '<div class="dshint" style="margin-top:14px">วางเอกสารบนพื้นสีเข้ม ถ่ายให้เห็นมุมกระดาษครบทั้ง 4 มุม แสงสว่างพอ ไม่มีเงาบัง</div>'));
-        var f = el('div', 'dsf', '<button class="dsb" id="dsDone"' + (pages.length ? '' : ' disabled') + '>' + (opt.okText || 'เสร็จ') + (pages.length ? ' (' + pages.length + ' หน้า)' : '') + '</button>');
+        var f = el('div', 'dsf', '<button class="dsb" id="dsDone"' + (pages.length || pdfSrc ? '' : ' disabled') + '>' + (opt.okText || 'เสร็จ') + (pages.length ? ' (' + pages.length + ' หน้า)' : '') + '</button>');
         ov.appendChild(h); ov.appendChild(b); ov.appendChild(f);
         ov.querySelector('#dsX').onclick = function () { close(null); };
         ov.querySelector('#dsCam').onclick = function () { if (pages.length >= max) { alert('สแกนได้สูงสุด ' + max + ' หน้า'); return; } f1.click(); };
         ov.querySelector('#dsPic').onclick = function () { if (pages.length >= max) { alert('สแกนได้สูงสุด ' + max + ' หน้า'); return; } f2.click(); };
         Array.prototype.forEach.call(ov.querySelectorAll('[data-d]'), function (x) { x.onclick = function () { pages.splice(+x.dataset.d, 1); draw(); }; });
-        Array.prototype.forEach.call(ov.querySelectorAll('[data-e]'), function (x) { x.onclick = function () { var pg = pages[+x.dataset.e]; editor(pg).then(function (r) { if (r) { pg.q = r.q; pg.mode = r.mode; process(pg); } draw(); }); }; });
+        Array.prototype.forEach.call(ov.querySelectorAll('[data-e]'), function (x) { x.onclick = function () { var pg = pages[+x.dataset.e]; editor(pg).then(function (r) { if (r) { pg.q = r.q; pg.mode = r.mode; pg.pdf = false; process(pg); } draw(); }); }; });
         ov.querySelector('#dsDone').onclick = finish;
       }
       function add(files) {
-        var L = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type); }).slice(0, max - pages.length);
+        var isPdf = function (f) { return f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''); };
+        var L = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type) || (opt.pdfOk && isPdf(f)); }).slice(0, max - pages.length);
+        if (!L.length && files && files.length) { alert(opt.pdfOk ? 'เลือกได้เฉพาะรูปภาพหรือไฟล์ PDF' : 'เลือกได้เฉพาะรูปภาพ'); return; }
         var chain = Promise.resolve();
         L.forEach(function (f) {
+          if (isPdf(f)) {
+            chain = chain.then(function () { var d = ov.querySelector('.dsbody'); if (d) d.insertAdjacentHTML('afterbegin', '<div class="dshint">กำลังเปิดไฟล์ PDF...</div>'); return readPdf(f, max - pages.length); }).then(function (r) {
+              if (!pdfSrc) pdfSrc = { b64: r.b64, name: r.name, text: r.text, total: r.total, raw: !!r.raw, n: r.canvases.length };
+              r.canvases.forEach(function (c) { pages.push(process({ src: c, mode: 'color', pdf: true })); });
+            });
+            return;
+          }
           chain = chain.then(function () { return readFile(f); }).then(loadImg).then(function (im) {
             var pg = { src: fitCanvas(im, 2000), mode: opt.mode || 'bw' };
             return editor(pg).then(function (r) { if (!r) return; pg.q = r.q; pg.mode = r.mode; process(pg); pages.push(pg); });
@@ -239,13 +295,17 @@ var DocScan = (function () {
       f2.onchange = function () { var fs = f2.files; add(fs); f2.value = ''; };
       function finish() {
         var bt = ov.querySelector('#dsDone'); bt.disabled = true; bt.textContent = 'กำลังเตรียมไฟล์...';
-        var res = { pages: pages.map(function (p) { return p.out; }), thumbs: pages.map(function (p) { return p.thumb; }), pdf: '', text: '' };
-        var p1 = opt.pdf === false ? Promise.resolve('') : toPdf(pages);
+        // ไฟล์ PDF ที่เลือก (ไม่ได้เพิ่ม / ลบหน้า) = ใช้ไฟล์เดิมเลย ไม่สร้างใหม่
+        var onlyPdf = !!pdfSrc && pages.every(function (p) { return p.pdf; }) && pages.length === pdfSrc.n;
+        var res = { pages: pages.map(function (p) { return p.out; }), thumbs: pages.length ? pages.map(function (p) { return p.thumb; }) : [PDF_ICON], pdf: '', text: '', fromPdf: onlyPdf, fileName: pdfSrc ? pdfSrc.name : '' };
+        var p1 = onlyPdf ? Promise.resolve(pdfSrc.b64) : opt.pdf === false ? Promise.resolve('') : toPdf(pages);
         p1.then(function (pdf) {
           res.pdf = pdf;
           if (!opt.ocr) return '';
+          if (onlyPdf && pdfSrc.text.replace(/\s/g, '').length >= 20) return pdfSrc.text;
           bt.textContent = 'กำลังอ่านข้อความ...';
-          return opt.ocr(pages.slice(0, opt.ocrPages || 3).map(function (p) { return { b64: p.out.split(',')[1], mime: 'image/jpeg' }; })).catch(function (e) { res.ocrError = e.message || String(e); return ''; });
+          var src = pages.length ? pages.slice(0, opt.ocrPages || 3).map(function (p) { return { b64: (p.ocr || p.out).split(',')[1], mime: 'image/jpeg' }; }) : [{ b64: pdfSrc.b64, mime: 'application/pdf' }];
+          return opt.ocr(src).catch(function (e) { res.ocrError = e.message || String(e); return ''; });
         }).then(function (t) { res.text = t || ''; close(res); }, function (e) { alert(e.message || e); bt.disabled = false; bt.textContent = opt.okText || 'เสร็จ'; });
       }
       draw();
@@ -277,9 +337,71 @@ var DocScan = (function () {
 <script>
 // แบบฟอร์มสาธารณะ (ไม่ต้องล็อกอิน) · ส่งคำขอเข้า Inflight › Stock สินค้า › คำขอเบิก
 var API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
-var CATS = [['crew', 'ของใช้ลูกเรือ'], ['cabin', 'ของใช้บนเครื่อง'], ['fb', 'F&B'], ['mer', 'MERCHANDISE']];
+// ===== ช่องค้นหาแบบมีรายการให้เลือก: พิมพ์ตัวเดียวก็ขึ้นรายการ · พิมพ์ต่อรายการเปลี่ยนตาม · ลบข้อความแล้วรายการหายไป =====
+var AC = (function () {
+  var box = null, cur = null;
+  var CSS = '.acl{position:fixed;z-index:99990;background:#fff;color:#2b2416;border:1px solid #d9cba3;border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);max-height:300px;overflow:auto;padding:4px 0;font-size:14px;display:none;text-align:left}' +
+    '.acl div{padding:8px 12px;cursor:pointer;line-height:1.3}.acl div.on,.acl div:hover{background:#fff3c4}.acl small{display:block;color:#7a6e55;font-size:12px}.acl .acnew{border-top:1px solid #eee;color:#8a6d2f;font-weight:700}' +
+    'html[data-theme="dark"] .acl{background:#221f18;color:#f1e8d0;border-color:#4a4232}html[data-theme="dark"] .acl div.on,html[data-theme="dark"] .acl div:hover{background:#3d3420}html[data-theme="dark"] .acl small{color:#b4a785}' +
+    '@media (prefers-color-scheme: dark){html:not([data-theme]) .acl{background:#221f18;color:#f1e8d0;border-color:#4a4232}html:not([data-theme]) .acl div.on,html:not([data-theme]) .acl div:hover{background:#3d3420}}';
+  function css() { if (document.getElementById('acCss')) return; var s = document.createElement('style'); s.id = 'acCss'; s.textContent = CSS; document.head.appendChild(s); }
+  function ex(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+  function hide() { if (box) box.style.display = 'none'; cur = null; }
+  function place(inp) {
+    var r = inp.getBoundingClientRect(); if (!r.width) { hide(); return; }
+    box.style.left = Math.max(4, Math.min(r.left, window.innerWidth - Math.max(r.width, 240) - 4)) + 'px'; box.style.width = Math.max(r.width, 240) + 'px';
+    var below = window.innerHeight - r.bottom;
+    if (below < 220 && r.top > below) { box.style.top = ''; box.style.bottom = (window.innerHeight - r.top + 2) + 'px'; box.style.maxHeight = Math.min(300, r.top - 8) + 'px'; }
+    else { box.style.bottom = ''; box.style.top = (r.bottom + 2) + 'px'; box.style.maxHeight = Math.min(300, below - 8) + 'px'; }
+  }
+  // src(q) → [{ t: บรรทัดหลัก, s: บรรทัดรอง, cls }] · pick(x, inp) เมื่อเลือก
+  function bind(inp, src, pick) {
+    if (!inp) return;
+    inp.setAttribute('autocomplete', 'off');
+    var L = [], k = -1;
+    function show() {
+      var q = inp.value.trim();
+      if (!q) { if (cur === inp || !cur) hide(); return; }
+      L = src(q) || [];
+      if (!L.length) { hide(); return; }
+      css();
+      if (!box) { box = document.createElement('div'); box.className = 'acl'; document.body.appendChild(box); box.addEventListener('mousedown', function (e) { e.preventDefault(); }); }
+      k = -1; cur = inp;
+      box.innerHTML = L.map(function (x, i) { return '<div data-i="' + i + '"' + (x.cls ? ' class="' + x.cls + '"' : '') + '>' + ex(x.t) + (x.s ? '<small>' + ex(x.s) + '</small>' : '') + '</div>'; }).join('');
+      Array.prototype.forEach.call(box.children, function (d) { d.onclick = function () { choose(+d.getAttribute('data-i')); }; });
+      box.style.display = 'block'; box.scrollTop = 0; place(inp);
+    }
+    function choose(i) { var x = L[i]; hide(); if (x) pick(x, inp); }
+    function mark() { Array.prototype.forEach.call(box.children, function (d, i) { d.classList.toggle('on', i === k); if (i === k && d.scrollIntoView) d.scrollIntoView({ block: 'nearest' }); }); }
+    inp.addEventListener('input', show);
+    inp.addEventListener('focus', function () { if (inp.value.trim()) show(); });
+    inp.addEventListener('blur', function () { setTimeout(function () { if (cur === inp) hide(); }, 180); });
+    inp.addEventListener('keydown', function (e) {
+      if (!box || box.style.display !== 'block' || cur !== inp) return;
+      if (e.key === 'ArrowDown') { k = Math.min(L.length - 1, k + 1); mark(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp') { k = Math.max(0, k - 1); mark(); e.preventDefault(); }
+      else if (e.key === 'Enter' && k >= 0) { choose(k); e.preventDefault(); }
+      else if (e.key === 'Escape') hide();
+    });
+  }
+  // ค้นสินค้าจาก รหัสสินค้า / ชื่อ (ขึ้นต้นด้วยคำค้นมาก่อน)
+  function items(L, q, max) {
+    var n = function (s) { return String(s || '').toLowerCase().replace(/\s+/g, ''); }, k = n(q), out = [];
+    if (!k) return out;
+    L.forEach(function (x) {
+      var a = n(x.sku), b = n(x.name), sc = a && a.indexOf(k) === 0 ? 0 : b.indexOf(k) === 0 ? 1 : a.indexOf(k) >= 0 ? 2 : b.indexOf(k) >= 0 ? 3 : 9;
+      if (sc < 9) out.push([sc, x]);
+    });
+    out.sort(function (a, b) { return a[0] - b[0] || String(a[1].name).localeCompare(String(b[1].name)); });
+    return out.slice(0, max || 30).map(function (x) { return x[1]; });
+  }
+  window.addEventListener('resize', hide);
+  window.addEventListener('scroll', function (e) { if (box && box.style.display === 'block' && cur && e.target !== box) place(cur); }, true);
+  return { bind: bind, hide: hide, items: items };
+})();
+var CATS = [['crew', 'ของใช้ลูกเรือ'], ['cabin', 'ของใช้บนเครื่อง'], ['fb', 'F&B'], ['mer', 'MERCHANDISE'], ['other', 'อื่นๆ']];
 var NEW = '__new';
-function blankRow() { return { id: '', q: '', f: '', sku: '', name: '', unit: '', cat: 'fb' }; }
+function blankRow() { return { id: '', q: '', f: '', sku: '', name: '', unit: '', cat: 'other' }; }
 var S = { items: [], t: 'out', kind: 'dom', rows: [blankRow()], photo: null, d: '', note: '', name: '', dept: '', tel: '' };
 function $(id) { return document.getElementById(id); }
 function each(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
@@ -309,27 +431,15 @@ function shrink(file, max, q) {
 function itemOf(id) { return S.items.filter(function (x) { return x.id === id; })[0]; }
 function catsOf(L) { var c = CATS.slice(); L.forEach(function (x) { if (x.cat && !c.some(function (k) { return k[0] === x.cat; })) c.push([x.cat, x.cat]); }); return c; }
 function label(x) { return (x.sku ? x.sku + ' · ' : '') + x.name + (x.unit ? ' (' + x.unit + ')' : ''); }
-// ตัวเลือกสินค้าของแถว (กรองด้วยคำค้น รหัสสินค้า / ชื่อ)
-function optsHtml(L, r) {
-  var f = String(r.f || '').trim().toLowerCase();
-  var hit = function (x) { return !f || (x.sku + ' ' + x.name).toLowerCase().indexOf(f) >= 0 || x.id === r.id; };
-  var h = '<option value="">— เลือกสินค้า' + (f ? ' (ค้นหา: ' + esc(r.f) + ')' : '') + ' —</option>';
-  catsOf(L).forEach(function (c) {
-    var l = L.filter(function (x) { return x.cat === c[0] && hit(x); });
-    if (l.length) h += '<optgroup label="' + esc(c[1]) + '">' + l.map(function (x) { return '<option value="' + x.id + '"' + (x.id === r.id ? ' selected' : '') + '>' + esc(label(x)) + '</option>'; }).join('') + '</optgroup>';
-  });
-  h += '<option value="' + NEW + '"' + (r.id === NEW ? ' selected' : '') + '>' + (S.t === 'in' ? '➕ สินค้าใหม่ (ยังไม่มีในระบบ)' : '➕ สินค้าอื่น (ไม่มีในรายการ)') + '</option>';
-  return h;
-}
+// แถวสินค้า: พิมพ์ รหัสสินค้า / ชื่อสินค้า แล้วเลือกจากรายการที่ขึ้นมา (พิมพ์ต่อรายการเปลี่ยนตาม · ลบข้อความรายการหายไป)
+function pickInfo(it) { return it ? 'รหัสสินค้า: <b>' + esc(it.sku || '-') + '</b> · หมวด ' + esc((catsOf([it]).filter(function (c) { return c[0] === it.cat; })[0] || ['', it.cat])[1]) : ''; }
 function rowHtml(L, r, i) {
   var it = itemOf(r.id), isNew = r.id === NEW;
-  var h = '<div class="itm' + (isNew ? ' new' : '') + '"><div class="itmh"><b>รายการที่ ' + (i + 1) + '</b>' + (isNew ? '<span class="nb">🆕 ' + (S.t === 'in' ? 'สินค้าใหม่' : 'ไม่มีในรายการ') + '</span>' : '') + (S.rows.length > 1 ? '<button type="button" class="sec sm fX" data-i="' + i + '">✕ ลบ</button>' : '') + '</div>' +
-    '<label class="lb">🔍 ค้นหา รหัสสินค้า / ชื่อสินค้า</label><input class="fS" data-i="' + i + '" value="' + esc(r.f || '') + '">' +
-    '<label class="lb">สินค้า <span class="req">*</span></label>' +
-    '<select class="fI" data-i="' + i + '">' + optsHtml(L, r) + '</select>';
-  if (isNew) h += '<div class="g2"><div><label>รหัสสินค้า</label><input class="fSku" data-i="' + i + '" value="' + esc(r.sku) + '"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '<option value="__other"' + (r.cat === '__other' ? ' selected' : '') + '>อื่นๆ (หมวดใหม่)</option></select>' + (r.cat === '__other' ? '<input class="fCatX" data-i="' + i + '" value="' + esc(r.catx || '') + '">' : '') + '</div></div>' +
+  var h = '<div class="itm' + (isNew ? ' new' : '') + '"><div class="itmh"><b>รายการที่ ' + (i + 1) + '</b>' + (isNew ? '<span class="nb">' + (S.t === 'in' ? 'สินค้าใหม่' : 'ไม่มีในรายการ') + '</span>' : '') + (S.rows.length > 1 ? '<button type="button" class="sec sm fX" data-i="' + i + '">✕ ลบ</button>' : '') + '</div>' +
+    '<label class="lb">ค้นหา รหัสสินค้า / ชื่อสินค้า <span class="req">*</span></label><input type="search" class="fS" data-i="' + i + '" value="' + esc(r.f || '') + '" enterkeyhint="search">' +
+    '<div class="hint pk" data-i="' + i + '" style="margin-top:4px">' + (it ? pickInfo(it) : isNew ? '' : 'พิมพ์แล้วเลือกสินค้าจากรายการที่ขึ้นมา') + '</div>';
+  if (isNew) h += '<div class="g2"><div><label>รหัสสินค้า (13 หลัก)</label><input class="fSku" data-i="' + i + '" inputmode="numeric" maxlength="13" value="' + esc(r.sku) + '"></div><div><label>หมวด</label><select class="fCat" data-i="' + i + '">' + catsOf(L).map(function (c) { return '<option value="' + esc(c[0]) + '"' + (c[0] === r.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>'; }).join('') + '<option value="__other"' + (r.cat === '__other' ? ' selected' : '') + '>อื่นๆ (หมวดใหม่)</option></select>' + (r.cat === '__other' ? '<input class="fCatX" data-i="' + i + '" value="' + esc(r.catx || '') + '">' : '') + '</div></div>' +
     '<label>ชื่อสินค้า' + (S.t === 'in' ? 'ใหม่' : '') + ' <span class="req">*</span></label><input class="fNm" data-i="' + i + '" value="' + esc(r.name) + '">';
-  else if (it) h += '<div class="hint" style="margin-top:4px">รหัสสินค้า: <b>' + esc(it.sku || '-') + '</b> · หมวด ' + esc((catsOf(L).filter(function (c) { return c[0] === it.cat; })[0] || ['', it.cat])[1]) + '</div>';
   h += '<div class="g2"><div><label>จำนวน <span class="req">*</span></label><input type="number" min="1" inputmode="numeric" class="fQ" data-i="' + i + '" value="' + esc(r.q) + '"></div>' +
     '<div><label>หน่วยนับ</label>' + (isNew ? '<input class="fU" data-i="' + i + '" value="' + esc(r.unit) + '">' : '<input value="' + esc(it ? it.unit || '-' : '') + '" readonly class="ro">') + '</div></div></div>';
   return h;
@@ -338,28 +448,28 @@ function keep() {
   if (!$('fD')) return;
   S.d = $('fD').value; S.note = $('fN').value; S.name = $('fName').value; S.dept = $('fDept').value; S.tel = $('fTel').value;
   var put = function (cls, k) { each('.' + cls, function (x) { S.rows[x.dataset.i][k] = x.value; }); };
-  put('fI', 'id'); put('fQ', 'q'); put('fCatX', 'catx'); put('fS', 'f'); put('fSku', 'sku'); put('fNm', 'name'); put('fU', 'unit'); put('fCat', 'cat');
+  put('fQ', 'q'); put('fCatX', 'catx'); put('fS', 'f'); put('fSku', 'sku'); put('fNm', 'name'); put('fU', 'unit'); put('fCat', 'cat');
 }
 function draw() {
   var L = S.items.filter(function (x) { return x.kind === S.kind; }), w = S.t === 'in' ? 'รับเข้า' : 'เบิก';
   var seg = function (id, o, v) { return '<div class="seg" id="' + id + '">' + o.map(function (x) { return '<button type="button" data-v="' + x[0] + '" class="' + (v === x[0] ? 'on' : '') + '">' + x[1] + '</button>'; }).join('') + '</div>'; };
   var nOk = S.rows.filter(function (r) { return (r.id && r.id !== NEW || (r.id === NEW && String(r.name).trim())) && Number(r.q) > 0; }).length;
   $('app').innerHTML =
-    '<div class="card"><h2>1 · ประเภทคำขอ</h2>' + seg('sT', [['out', '📤 เบิกสินค้า'], ['in', '📥 รับเข้าสินค้า']], S.t) + seg('sK', [['dom', 'DOM'], ['inter', 'INTER']], S.kind) +
+    '<div class="card"><h2>1 · ประเภทคำขอ</h2>' + seg('sT', [['out', 'เบิกสินค้า'], ['in', 'รับเข้าสินค้า']], S.t) + seg('sK', [['dom', 'DOM'], ['inter', 'INTER']], S.kind) +
     '<label>วันที่' + w + ' <span class="req">*</span></label><input type="date" id="fD" value="' + (S.d || today()) + '"></div>' +
     '<div class="card"><h2>2 · รายการสินค้าที่' + w + ' <small class="hint">(' + S.rows.length + ' รายการ · วันเดียวกัน)</small></h2>' +
     (true ? S.rows.map(function (r, i) { return rowHtml(L, r, i); }).join('') + '<button type="button" class="sec add" id="bAdd">+ เพิ่มสินค้า (รายการที่ ' + (S.rows.length + 1) + ')</button>' +
-      '<div class="hint" style="margin-top:6px">' + (S.t === 'in' ? 'ถ้าสินค้าที่รับเข้ายังไม่มีในรายการ เลือก "➕ สินค้าใหม่" ระบบจะเพิ่มเป็นสินค้าใหม่ให้เมื่อเจ้าหน้าที่อนุมัติ' : 'ถ้าสินค้าที่จะเบิกไม่มีในรายการ เลือก "➕ สินค้าอื่น" แล้วกรอกชื่อ เจ้าหน้าที่จะตรวจและเพิ่มสินค้านี้เข้าระบบ (ยังไม่ตัด Stock เพราะยังไม่มีในคลัง)') + '</div>'
+      '<div class="hint" style="margin-top:6px">' + (S.t === 'in' ? 'ถ้าสินค้าที่รับเข้ายังไม่มีในรายการ เลือก "+ สินค้าใหม่" ท้ายรายการค้นหา ระบบจะเพิ่มเป็นสินค้าใหม่ให้เมื่อเจ้าหน้าที่อนุมัติ' : 'ถ้าสินค้าที่จะเบิกไม่มีในรายการ เลือก "+ สินค้าอื่น" ท้ายรายการค้นหา แล้วกรอกชื่อ เจ้าหน้าที่จะตรวจและเพิ่มสินค้านี้เข้าระบบ (ยังไม่ตัด Stock เพราะยังไม่มีในคลัง)') + '</div>'
       : '<span class="hint">ยังไม่มีรายการสินค้าของ ' + S.kind.toUpperCase() + '</span>') +
     '<label>รายละเอียด / หมายเหตุ</label><textarea id="fN" rows="2">' + esc(S.note) + '</textarea></div>' +
     '<div class="card"><h2>3 · ข้อมูลผู้' + w + '</h2><label>ชื่อ - นามสกุล <span class="req">*</span></label><input id="fName" autocomplete="name" value="' + esc(S.name) + '">' +
     '<label>หน่วยงาน <span class="req">*</span></label><input id="fDept" value="' + esc(S.dept) + '"><label>เบอร์โทร</label><input id="fTel" inputmode="tel" value="' + esc(S.tel) + '"></div>' +
-    '<div class="card"><h2>4 · รูปภาพ <span class="req">* บังคับ</span></h2><div class="btns"><button type="button" id="bCam">📷 ถ่ายรูป</button><button type="button" class="sec" id="bPic">🖼 เลือกรูป</button></div>' +
+    '<div class="card"><h2>4 · รูปภาพ <small class="hint">(ไม่บังคับ)</small></h2><div class="btns"><button type="button" id="bCam">ถ่ายรูป</button><button type="button" class="sec" id="bPic">เลือกรูป</button></div>' +
     '<input type="file" id="f1" accept="image/*" capture="environment" hidden><input type="file" id="f2" accept="image/*" hidden>' +
     '<div class="ph">' + (S.photo ? '<img src="' + S.photo.thumb + '" alt=""><button type="button" class="sec" id="bPx">ลบรูป</button>' : '<span class="hint">ถ่ายรูปสินค้าที่' + w + ' หรือเอกสารประกอบ</span>') + '</div>' +
-    '<h2 style="margin-top:16px">5 · สแกนเอกสาร <small class="hint">(ไม่บังคับ)</small></h2><div class="hint">ใบส่งของ / ใบเบิก · ระบบรวมเป็น PDF และอ่านข้อความเพื่อกรอกรายการสินค้าให้</div>' +
-    '<button type="button" class="sec" id="bScan" style="width:100%;margin-top:8px">📄 ' + (S.doc ? 'สแกนใหม่' : 'สแกนเอกสาร') + '</button>' +
-    (S.doc ? '<div class="ph">' + S.doc.thumbs.slice(0, 4).map(function (t) { return '<img src="' + t + '" alt="" style="width:70px;height:90px">'; }).join('') + '<button type="button" class="sec" id="bDx">ลบเอกสาร</button></div><div class="hint">✓ เอกสาร ' + S.doc.thumbs.length + ' หน้า (PDF) แนบไปกับคำขอ' + (S.doc.n ? ' · จับคู่สินค้าได้ ' + S.doc.n + ' รายการ' : '') + '</div>' +
+    '<h2 style="margin-top:16px">5 · สแกนเอกสาร / แนบไฟล์ PDF <small class="hint">(ไม่บังคับ)</small></h2><div class="hint">ใบส่งของ / ใบเบิก · ถ่ายรูปหรือเลือกไฟล์ PDF · ระบบแนบไฟล์ไปกับคำขอ และอ่านข้อความเพื่อกรอกรายการสินค้าให้</div>' +
+    '<button type="button" class="sec" id="bScan" style="width:100%;margin-top:8px">' + (S.doc ? 'สแกน / เลือกไฟล์ใหม่' : 'สแกนเอกสาร / เลือกไฟล์ PDF') + '</button>' +
+    (S.doc ? '<div class="ph">' + S.doc.thumbs.slice(0, 4).map(function (t) { return '<img src="' + t + '" alt="" style="width:70px;height:90px">'; }).join('') + '<button type="button" class="sec" id="bDx">ลบเอกสาร</button></div><div class="hint">✓ ' + (S.doc.file ? 'ไฟล์ ' + esc(S.doc.file) : 'เอกสาร ' + S.doc.thumbs.length + ' หน้า') + ' (PDF) แนบไปกับคำขอ' + (S.doc.n ? ' · จับคู่สินค้าได้ ' + S.doc.n + ' รายการ' : '') + (S.doc.err ? ' · อ่านข้อความไม่สำเร็จ: ' + esc(S.doc.err) : !S.doc.text ? ' · ไม่พบข้อความในเอกสาร' : '') + '</div>' +
       (S.doc.text ? '<details><summary class="hint">ข้อความที่อ่านได้</summary><textarea readonly rows="6" style="font-size:12px">' + esc(S.doc.text) + '</textarea></details>' : '') : '') + '</div>' +
     '<button class="go" id="bGo">ส่งคำขอ' + w + (nOk ? ' (' + nOk + ' รายการ)' : '') + '</button>' +
     '<div class="card"><details><summary>ตรวจสถานะคำขอ</summary><label>เลขคำขอ</label><input id="fNo"><button type="button" class="sec" id="bChk" style="margin-top:8px">ตรวจสถานะ</button><div class="st" id="stOut"></div></details></div>';
@@ -367,17 +477,28 @@ function draw() {
   each('#sK button', function (b) { b.onclick = function () { keep(); if (S.kind !== b.dataset.v) S.rows = [blankRow()]; S.kind = b.dataset.v; draw(); }; });
   if ($('bAdd')) $('bAdd').onclick = function () { keep(); S.rows.push(blankRow()); draw(); var l = document.querySelectorAll('.itm'); if (l.length) l[l.length - 1].scrollIntoView({ block: 'center' }); };
   each('.fX', function (b) { b.onclick = function () { keep(); S.rows.splice(Number(b.dataset.i), 1); draw(); }; });
-  each('.fI', function (x) { x.onchange = function () { keep(); draw(); }; });
+
   each('.fCat', function (x) { x.onchange = function () { keep(); draw(); var t = document.querySelector('.fCatX[data-i="' + x.dataset.i + '"]'); if (t) t.focus(); }; });
   each('.fS', function (x) {
-    x.oninput = function () {
-      var i = Number(x.dataset.i), r = S.rows[i]; r.f = x.value;
-      var sel = document.querySelector('.fI[data-i="' + i + '"]'); r.id = sel.value;
-      sel.innerHTML = optsHtml(S.items.filter(function (y) { return y.kind === S.kind; }), r);
-      var only = Array.prototype.filter.call(sel.options, function (o) { return o.value && o.value !== NEW; });
-      if (only.length === 1 && !r.id) { sel.value = only[0].value; keep(); draw(); var n = document.querySelector('.fQ[data-i="' + i + '"]'); if (n) n.focus(); }
-    };
+    var i = Number(x.dataset.i);
+    x.addEventListener('input', function () {
+      var r = S.rows[i]; r.f = x.value;
+      // แก้ข้อความหลังเลือกแล้ว = ยกเลิกสินค้าที่เลือก (รอเลือกใหม่จากรายการ)
+      if (r.id && r.id !== NEW) { var it = itemOf(r.id); if (!it || x.value !== label(it)) { r.id = ''; var p = document.querySelector('.pk[data-i="' + i + '"]'); if (p) p.innerHTML = 'พิมพ์แล้วเลือกสินค้าจากรายการที่ขึ้นมา'; var u = x.parentNode.querySelector('input.ro'); if (u) u.value = ''; } }
+    });
+    AC.bind(x, function (q) {
+      var L = S.items.filter(function (y) { return y.kind === S.kind; });
+      return AC.items(L, q, 30).map(function (y) { return { t: label(y), s: (catsOf(L).filter(function (c) { return c[0] === y.cat; })[0] || ['', y.cat])[1], id: y.id }; })
+        .concat([{ t: (S.t === 'in' ? '+ สินค้าใหม่ (ยังไม่มีในระบบ): ' : '+ สินค้าอื่น (ไม่มีในรายการ): ') + q, cls: 'acnew', nw: q }]);
+    }, function (y) {
+      keep(); var r = S.rows[i];
+      if (y.nw != null) { r.id = NEW; r.f = y.nw; if (/^\d{6,}$/.test(y.nw)) r.sku = y.nw.slice(0, 13); else r.name = y.nw; }
+      else { r.id = y.id; r.f = label(itemOf(y.id)); }
+      draw();
+      var n = document.querySelector(r.id === NEW ? (r.name ? '.fQ[data-i="' + i + '"]' : '.fNm[data-i="' + i + '"]') : '.fQ[data-i="' + i + '"]'); if (n) n.focus();
+    });
   });
+  each('.fSku', function (x) { x.addEventListener('input', function () { var v = x.value.replace(/\D/g, '').slice(0, 13); if (v !== x.value) x.value = v; }); });
   var pick = async function (inp) {
     var f = inp.files[0]; inp.value = ''; if (!f) return; keep();
     if (!/^image\//.test(f.type)) { toast('ไฟล์ต้องเป็นรูปภาพ'); return; }
@@ -389,20 +510,20 @@ function draw() {
   if ($('bDx')) $('bDx').onclick = function () { keep(); S.doc = null; draw(); };
   $('bScan').onclick = async function () {
     keep();
-    var r = await DocScan.open({ title: 'สแกนเอกสาร', max: 5, okText: 'เสร็จ · อ่านข้อความ', hint: 'ถ่ายได้หลายหน้า · รวมเป็น PDF ไฟล์เดียว', ocr: function (pages) { return api('ioPubOcr', [pages.slice(0, 2)]); } });
+    var r = await DocScan.open({ title: 'สแกนเอกสาร / ไฟล์ PDF', max: 5, pdfOk: true, okText: 'เสร็จ · อ่านข้อความ', hint: 'ถ่ายได้หลายหน้า หรือเลือกไฟล์ PDF · ระบบรวมเป็น PDF ไฟล์เดียวและอ่านข้อความให้', ocr: function (pages) { return api('ioPubOcr', [pages.slice(0, 2)]); } });
     if (!r) return;
+    if (r.pdf && r.pdf.length * 0.75 > 12 * 1024 * 1024) { toast('ไฟล์ PDF ใหญ่เกิน 12MB · ลดขนาดไฟล์หรือสแกนน้อยหน้าลง'); return; }
     var L = S.items.filter(function (x) { return x.kind === S.kind; }), m = DocScan.matchItems(r.text, L);
     // เติมรายการที่จับคู่ได้ (ไม่ซ้ำกับที่เลือกไว้แล้ว)
     var have = {}; S.rows.forEach(function (x) { if (x.id) have[x.id] = 1; });
-    var add = m.filter(function (x) { return !have[x.id]; }).map(function (x) { var b = blankRow(); b.id = x.id; b.q = x.q; return b; });
+    var add = m.filter(function (x) { return !have[x.id]; }).map(function (x) { var b = blankRow(); b.id = x.id; b.q = x.q; b.f = label(itemOf(x.id)); return b; });
     S.rows = S.rows.filter(function (x) { return x.id || x.q; }).concat(add); if (!S.rows.length) S.rows = [blankRow()];
-    S.doc = { b64: r.pdf, thumbs: r.thumbs, text: r.text, n: add.length };
-    if (!S.photo && r.pages.length) S.photo = { mime: 'image/jpeg', b64: r.pages[0].split(',')[1], thumb: r.thumbs[0] };
+    S.doc = { b64: r.pdf, thumbs: r.thumbs, text: r.text, n: add.length, file: r.fromPdf ? r.fileName : '', err: r.ocrError || '' };
     toast(r.ocrError ? 'อ่านข้อความไม่สำเร็จ · แนบ PDF แล้ว เลือกสินค้าเองได้' : add.length ? 'จับคู่สินค้าได้ ' + add.length + ' รายการ · ตรวจจำนวนก่อนส่ง' : 'แนบเอกสารแล้ว · ไม่พบชื่อสินค้าที่ตรงกัน เลือกเองได้', !r.ocrError);
     draw();
   };
   $('bChk').onclick = async function () {
-    try { busy(true, 'กำลังตรวจ...'); var r = await api('ioPubIStockStatus', [$('fNo').value]); var st = { pending: '⏳ รออนุมัติ', approved: '✅ อนุมัติแล้ว', rejected: '❌ ไม่อนุมัติ' }[r.status] || r.status; $('stOut').innerHTML = '<b>' + esc(r.no) + '</b> · ' + st + (r.reason ? ' · ' + esc(r.reason) : '') + (r.decAt ? ' · ' + esc(r.decAt.slice(0, 16)) : ''); }
+    try { busy(true, 'กำลังตรวจ...'); var r = await api('ioPubIStockStatus', [$('fNo').value]); var st = { pending: 'รออนุมัติ', approved: 'อนุมัติแล้ว', rejected: 'ไม่อนุมัติ' }[r.status] || r.status; $('stOut').innerHTML = '<b>' + esc(r.no) + '</b> · ' + st + (r.reason ? ' · ' + esc(r.reason) : '') + (r.decAt ? ' · ' + esc(r.decAt.slice(0, 16)) : ''); }
     catch (e) { $('stOut').textContent = e.message; } finally { busy(false); }
   };
   $('bGo').onclick = async function () {
@@ -411,7 +532,7 @@ function draw() {
     S.rows.forEach(function (r, i) {
       var q = Math.floor(Number(r.q) || 0);
       if (!r.id && !q) return;
-      if (!r.id) { bad = bad || 'รายการที่ ' + (i + 1) + ': เลือกสินค้า'; return; }
+      if (!r.id) { bad = bad || 'รายการที่ ' + (i + 1) + ': ' + (r.f ? 'เลือกสินค้าจากรายการที่ขึ้นมา' : 'เลือกสินค้า'); return; }
       if (!(q > 0)) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่จำนวน'; return; }
       if (r.id === NEW) { if (!String(r.name).trim()) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่ชื่อสินค้าใหม่'; return; } var cat = r.cat === '__other' ? String(r.catx || '').trim() : r.cat; if (!cat) { bad = bad || 'รายการที่ ' + (i + 1) + ': ใส่ชื่อหมวดใหม่'; return; } items.push({ new: 1, sku: r.sku, name: r.name, unit: r.unit, cat: cat, q: q }); }
       else items.push({ id: r.id, q: q });
@@ -420,13 +541,12 @@ function draw() {
     if (!items.length) { toast('เลือกสินค้าและใส่จำนวนอย่างน้อย 1 รายการ'); return; }
     if (S.name.trim().length < 3) { toast('ใส่ชื่อ - นามสกุล'); $('fName').focus(); return; }
     if (!S.dept.trim()) { toast('ใส่หน่วยงาน'); $('fDept').focus(); return; }
-    if (!S.photo) { toast('ต้องแนบรูปหรือถ่ายรูปก่อนส่ง'); return; }
     $('bGo').disabled = true;
     try {
-      busy(true, 'กำลังส่งคำขอและอัปโหลดรูป...');
+      busy(true, 'กำลังส่งคำขอ' + (S.photo || S.doc ? 'และอัปโหลดไฟล์' : '') + '...');
       var r = await api('ioPubIStockReq', [{ kind: S.kind, t: S.t, d: S.d, items: items, name: S.name, dept: S.dept, phone: S.tel, note: S.note, ocr: S.doc ? S.doc.text : '' }, S.photo, S.doc ? { b64: S.doc.b64 } : null]);
       window.scrollTo(0, 0);
-      $('app').innerHTML = '<div class="card ok"><div class="big">✅</div><h2>ส่งคำขอแล้ว (' + items.length + ' รายการ)</h2><div class="hint">เลขคำขอ</div><div class="no">' + esc(r.no) + '</div><p class="hint">จดเลขนี้ไว้ตรวจสถานะ · เจ้าหน้าที่ Inflight จะตรวจและอนุมัติ</p><button id="bNew">ส่งคำขอใหม่</button></div>';
+      $('app').innerHTML = '<div class="card ok"><div class="big" style="color:var(--ok)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></div><h2>ส่งคำขอแล้ว (' + items.length + ' รายการ)</h2><div class="hint">เลขคำขอ</div><div class="no">' + esc(r.no) + '</div><p class="hint">จดเลขนี้ไว้ตรวจสถานะ · เจ้าหน้าที่ IFS จะตรวจและอนุมัติ</p><button id="bNew">ส่งคำขอใหม่</button></div>';
       $('bNew').onclick = function () { S.rows = [blankRow()]; S.photo = null; S.doc = null; S.note = ''; draw(); };
     } catch (e) { toast(e.message); if ($('bGo')) $('bGo').disabled = false; } finally { busy(false); }
   };

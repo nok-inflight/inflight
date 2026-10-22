@@ -17,7 +17,7 @@
   body { font-family: Arial, sans-serif; margin: 0; background: #f4f1e8; color: #222; }
   header { background: #8a6d2f; color: #fff; padding: 8px 16px; font-weight: bold; display: flex; justify-content: space-between; align-items: center; min-height: 26px; }
   header button { padding: 4px 10px; margin: 0 0 0 8px; font-size: 12px; }
-  #app { padding: 12px 16px; max-width: 1240px; margin: auto; }
+  #app { padding: 12px 16px; max-width: 1680px; margin: auto; }
   table { border-collapse: collapse; width: 100%; background: #fff; }
   th { background: #ffe9a0; padding: 6px; text-align: left; }
   .scr { overflow: auto; max-height: 65vh; }
@@ -172,7 +172,7 @@
   #login input { width: 100%; box-sizing: border-box; margin-top: 4px; }
   #login button { width: 100%; margin-top: 16px; }
   #shell { display: none; min-height: calc(100vh - 44px); }
-  #side { width: 190px; background: #e9e1c8; padding: 8px; flex-shrink: 0; box-sizing: border-box; }
+  #side { width: 230px; background: #e9e1c8; padding: 8px; flex-shrink: 0; box-sizing: border-box; }
   #side button { display: block; width: 100%; text-align: left; background: transparent; color: #222; margin: 2px 0; }
   #side button.on { background: #8a6d2f; color: #fff; }
   #main { flex: 1; min-width: 0; }
@@ -488,7 +488,11 @@
   .znav .zsep:first-child { border-top: 0; margin-top: 0; padding-top: 4px; } .znav .zsep ~ button { padding-left: 20px; }
   h3 .zsub { font-size: 13px; font-weight: 400; color: #8a7a55; margin-left: 6px; }
   .stkselbar { gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0; } .stkcnt span { display: inline-flex; align-items: center; gap: 5px; } .stkcnt .stkdot { width: 10px; height: 10px; }
-  table.stkt tr.off td { opacity: .45; } table.stkt.stkl { min-width: 600px; } table.stkt.stkl .stk-st { white-space: nowrap; } .stkfil { align-items: center; flex-wrap: wrap; gap: 8px; } table.dstt tr.lv-r td b { color: #c0392b; }
+  table.stkt tr.off td { opacity: .45; } table.stkt.stklog { min-width: 0; } table.stkt.stklog td, table.stkt.stklog th { word-break: break-word; }
+  /* ช่องกรอกข้อมูลสูงเท่ากันทุกหน้า (ช่องเดียวกันในแถวเดียวกันตรงแนวกัน) */
+  .qtform input:not([type=checkbox]):not([type=radio]):not([type=file]), .qtform select, .grid input:not([type=checkbox]):not([type=radio]):not([type=file]), .grid select, .rtabs input:not([type=checkbox]):not([type=radio]), .rtabs select, .stkfil input, .stkfil select, .dd > label > input:not([type=checkbox]):not([type=radio]), .dd > label > select { height: 36px; box-sizing: border-box; padding-top: 4px; padding-bottom: 4px; margin: 0; vertical-align: middle; }
+  .qtform > button, .qtform > span > button { height: 36px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; margin: 0; }
+  .qtform label { gap: 3px; justify-content: flex-end; } .rtabs .dl, .stkfil .dl { display: inline-flex; align-items: center; gap: 6px; } table.stkt.stkl { min-width: 600px; } table.stkt.stkl .stk-st { white-space: nowrap; } .stkfil { align-items: center; flex-wrap: wrap; gap: 8px; } table.dstt tr.lv-r td b { color: #c0392b; }
   .zbody { min-width: 0; }
   .zbody h4 { margin: 0 0 8px; font-size: 18px; }
   html[data-theme="dark"] .znav { background: #221f18; }
@@ -697,7 +701,7 @@
   html[data-theme="dark"] table.fmmt { background: #221f18; color: #ece4cf; } html[data-theme="dark"] table.fmmt td { color: #ece4cf; border-color: #4a4434; } html[data-theme="dark"] table.fmmt th { border-color: #4a4434; }
   html[data-theme="dark"] table.fmmt td.b { background: #1f2a38; } html[data-theme="dark"] table.fmmt tbody tr[data-d]:hover td { background: #3a3218; } html[data-theme="dark"] table.fmmt tr.miss td { background: #4a1f1c; } html[data-theme="dark"] table.fmmt tr.fut td { color: #777; }
   @media (max-width: 1024px) {
-    #side { width: 160px; padding: 6px; }
+    #side { width: 200px; padding: 6px; }
     #side button { padding: 8px 10px; font-size: 14px; }
     #app { padding: 10px 12px; }
     .zwrap { grid-template-columns: 190px minmax(0, 1fr); gap: 10px; }
@@ -1047,6 +1051,16 @@
     #side button:hover:not(.on) { transform: none; }
   }
 
+  /* เมนูซ้ายสุด: ข้อความอย่างเดียว + หัวข้อย่อยของหน่วยงานที่เปิดอยู่ */
+  #side button { padding: 9px 12px; }
+  #side .sdsub { margin: 2px 0 8px 10px; padding-left: 6px; border-left: 2px solid rgba(138,109,47,.3); }
+  #side .sdsub .sdsh { font-size: 11px; font-weight: bold; color: #8a6d2f; padding: 8px 8px 2px; text-transform: uppercase; letter-spacing: .5px; }
+  #side .sdsub button.sdi { font-size: 13px; padding: 6px 10px; margin: 1px 0; line-height: 1.3; white-space: normal; }
+  #side .sdsub button.sdi.on { background: rgba(138,109,47,.18); color: #5c4512; font-weight: 700; box-shadow: none; }
+  #side .sdsub button.sdi.on::before { display: none; }
+  html[data-theme="dark"] #side .sdsub .sdsh { color: #d8b45a; } html[data-theme="dark"] #side .sdsub button.sdi.on { background: rgba(216,180,90,.18); color: #f1dc9a; }
+  @media (min-width: 761px) { .zwrap { grid-template-columns: minmax(0, 1fr) !important; } .znav { display: none; } }
+  @media (max-width: 760px) { #side .sdsub { display: none; } }
   .gpdfbar { display: flex; gap: 8px; flex-wrap: wrap; margin: 0 0 10px; }
   .gbtn { display: inline-flex; align-items: center; gap: 6px; padding: 9px 16px; border-radius: 20px; background: linear-gradient(90deg, #8a6d2f, #b8902f); color: #fff; text-decoration: none; font-weight: bold; font-size: 14px; box-shadow: 0 2px 6px rgba(138,109,47,.3); }
   .gbtn.sec { background: #fff; color: #6b5420; border: 1px solid #e4d3a2; box-shadow: none; }
@@ -1630,7 +1644,7 @@ function noteGo(n) {
       if (n.room && $('liveCh').querySelector('option[value="' + n.room + '"]')) setRoom(n.room);
       if (!liveOpen) $('liveBar').onclick();
     } else if (n.type === 'entry' && ME.zones.some(z => z.id === 'sales')) { LIST_DATE = n.date || LIST_DATE; go('sales'); }
-    else if (n.type === 'ireq') { STK_RQ = 'pending'; showZoneGo('inflight', 'req'); }
+    else if (n.type === 'ireq') { STK_RQ = 'pending'; window.__rqPick = false; showZoneGo('inflight', 'req'); }
     else if (n.type === 'quote') { if (n.kind === 'req') { QT.open = n.id || ''; QT.list = null; showZoneGo('purchasing', 'quote'); } else { QT.hl = n.id || ''; showZoneGo('purchasing', 'qfiles'); } }
     else if (n.type === 'entry' && ME.zones.some(z => z.id === 'bac')) { BAC_DATE = n.date || BAC_DATE; BAC_TAB = 'sale'; go('bac'); }
     else if (n.type === 'bac' && ME.zones.some(z => z.id === 'bac')) { BAC_DATE = n.date || BAC_DATE; BAC_TAB = 'sale'; go('bac'); }
@@ -1650,6 +1664,7 @@ function noteGo(n) {
   };
 }
 function notify(n, quiet) {
+  if (n.type === 'ireq') stkReqLive();
   n.read = false;
   NOTES.unshift(n);
   NOTES = NOTES.slice(0, 50);
@@ -1880,7 +1895,7 @@ function enterApp(d) {
   $('shell').style.display = 'flex';
 
   if (d.zones.some(z => z.id === 'users')) d.zones = d.zones.filter(z => z.id !== 'staff');
-  const sb = (id, t, soon) => '<button data-z="' + esc(id) + '"' + (soon ? ' class="soon"' : '') + '><i>' + (ZONE_ICO[id] || svgI('folder')) + '</i><span>' + esc(t) + '</span></button>';
+  const sb = (id, t, soon) => '<button data-z="' + esc(id) + '"' + (soon ? ' class="soon"' : '') + '><span>' + esc(t) + '</span></button>';
   let h = '<div class="sdh">เมนู</div>' + sb('home', 'หน้าหลัก') + sb('guide', 'คู่มือการใช้งาน') + '<div class="sdv"></div>';
   d.zones.forEach(z => {
     if (z.id === 'account') h += (d.role === 'admin' ? sb('system', 'ระบบ') : '') + '<div class="sdv"></div>';
@@ -3420,6 +3435,7 @@ function go(id) {
   $('app').dataset.moved = '1';
   if ($('bacBox') && !bacLeaveOk()) { each('#side button', b => b.classList.toggle('on', b.dataset.z === 'bac')); return; }
   each('#side button', b => b.classList.toggle('on', b.dataset.z === id));
+  if (!ZONE_TOPICS[id]) each('#side .sdsub', x => x.remove());
   $('app').dataset.z = id;
   DV.full = ''; document.body.classList.remove('dvon');
   if (id === 'home') showHome();
@@ -3445,7 +3461,7 @@ const STK_CATS = [['crew', 'ของใช้ลูกเรือ'], ['cabin',
 const STK_LV = { g: 60, r: 20 };
 let STK = null, STK_K = 'dom', STK_V = { kind: '', cat: '', show: 'all' }, STK_SUB = 'stock', STK_RQ = 'pending';
 let STK_R = { from: '', to: '', auto: true, q: '', kind: '' }, STK_TH = {};
-const REQ_URL = 'https://nok-inflight.github.io/inflight/request.html';
+const REQ_URL = 'https://nok-inflight.github.io/inflight/request.html?v=31';
 const stkErr = e => /ไม่อนุญาตให้เรียกฟังก์ชัน|ไม่พบฟังก์ชัน/.test(String(e && e.message)) ? 'ต้องอัปเดตไฟล์ Inflight_Addon / Api ใน Apps Script ก่อน (Stock สินค้า)' : e.message;
 async function stkFetch() { STK = await run('ioIStockGet'); STK.items = STK.items || []; STK.tx = STK.tx || []; STK.reqs = STK.reqs || []; return STK; }
 function stkLoad() { return STK || { items: [], tx: [], reqs: [] }; }
@@ -3958,10 +3974,17 @@ function stkFind(kind, sku, name) {
   return (sku && L.filter(it => String(it.sku || '').toUpperCase() === String(sku).toUpperCase())[0]) || (name && L.filter(it => k(it.name) === k(name))[0]) || null;
 }
 const stkAcRow = it => { const c = stkCalc(it); return { t: (it.sku ? it.sku + ' · ' : '') + it.name, s: it.kind.toUpperCase() + ' · ' + stkCatName(it.cat) + ' · คงเหลือ ' + c.bal + ' ' + (it.unit || ''), it: it }; };
+// มีคำขอเบิกใหม่: ถ้าเปิดหน้า Stock สินค้าอยู่ โหลดข้อมูลใหม่ · อยู่หน้าคำขอเบิก = สลับไปที่ "รออนุมัติ" ให้เลย
+async function stkReqLive() {
+  STK_RQ = 'pending'; window.__rqPick = false;
+  if ($('app').dataset.z !== 'inflight' || !STK_PGT[ZONE_CUR.inflight] || !$('zc')) return;
+  try { await stkFetch(); } catch (e) { return; }
+  if (ZONE_CUR.inflight === 'req') showZone('inflight', 'req'); else stkNavBadge();
+}
 function stkNavBadge() {
-  const b = document.querySelector('.znav button[data-t="req"]'); if (!b || !STK) return;
+  if (!STK) return;
   const n = STK.reqs.filter(r => r.status === 'pending').length;
-  b.innerHTML = esc(T('คำขอเบิก')) + (n ? ' <span class="frBadge">' + n + '</span>' : '');
+  each('.znav button[data-t="req"], #side .sdi[data-t="req"]', b => { b.innerHTML = esc(T('คำขอเบิก')) + (n ? ' <span class="frBadge">' + n + '</span>' : ''); });
 }
 async function stkPage(box, sub) {
   STK_PG = STK_PGT[sub] ? sub : 'stock';
@@ -4010,7 +4033,7 @@ function stkFiltered() {
 }
 function stkStockHtml() {
   const can = stkCan();
-  let h = '<div class="rtabs stkfil"><label class="dl">ประเภท <select id="sfK">' + stkKindOpts(STK_F.kind, 'ทั้งหมด (DOM + INTER)') + '</select></label>' +
+  let h = '<div class="rtabs stkfil"><label class="dl">ประเภท <select id="sfK">' + stkKindOpts(STK_F.kind, 'ทั้งหมด') + '</select></label>' +
     '<label class="dl">หมวด <select id="sfC"><option value="">ทุกหมวด</option>' + stkCats().map(c => '<option value="' + esc(c[0]) + '"' + (c[0] === STK_F.cat ? ' selected' : '') + '>' + esc(c[1]) + '</option>').join('') + '</select></label>' +
     '<input type="search" id="sfQ" placeholder="ค้นหา รหัสสินค้า / ชื่อสินค้า" value="' + esc(STK_F.q || '') + '" style="min-width:220px;flex:1"></div>' + stkDemoNote();
   if (can) {
@@ -4211,7 +4234,7 @@ function stkLogHtml() {
   const tin = L.filter(t => t.t === 'in').reduce((a, t) => a + t.q, 0), tout = L.filter(t => t.t === 'out').reduce((a, t) => a + t.q, 0);
   let h = '<div class="hint" style="margin:4px 0">รับเข้า ' + tin + ' · เบิกออก ' + tout + ' · ' + L.length + ' รายการ</div>';
   if (!L.length) return h + '<div class="imp"><b>ไม่มีรายการ' + (q ? 'ที่ตรงกับคำค้น' : 'ในช่วงวันที่นี้') + '</b></div>';
-  h += '<div class="stkscroll"><table class="stkt stklog"><colgroup>' + ['70px', '11%', '13%', '20%', '9%', '9%', '11%', '13%', '14%'].concat(can ? ['44px'] : []).map(w => '<col style="width:' + w + '">').join('') + '</colgroup><thead><tr><th>รูป</th><th>วันที่ เวลา</th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th class="r">จำนวน</th><th>หน่วยงาน</th><th>ผู้เบิก / ผู้รับ</th><th>หมายเหตุ</th>' + (can ? '<th></th>' : '') + '</tr></thead><tbody>';
+  h += '<div class="stkscroll"><table class="stkt stklog"><colgroup>' + ['64px', '10%', '13%', '19%', '8%', '9%', '9%', '13%', '13%'].concat(can ? ['44px'] : []).map(w => '<col style="width:' + w + '">').join('') + '</colgroup><thead><tr><th>รูป</th><th>วันที่ เวลา</th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th class="r">จำนวน</th><th>หน่วยงาน</th><th>ผู้เบิก / ผู้รับ</th><th>หมายเหตุ</th>' + (can ? '<th></th>' : '') + '</tr></thead><tbody>';
   L.slice(0, 300).forEach(t => {
     const it = ids[t.item], th = STK_TH[t.id];
     h += '<tr><td>' + (t.photo ? '<button type="button" class="stkth" data-f="' + esc(t.photo) + '" data-n="' + esc(it.name + ' · ' + dmy(t.d)) + '" data-id="' + esc(t.id) + '">' + (th ? '<img src="' + th + '" alt="">' : 'รูป') + '</button>' : '<span class="hint">-</span>') + '</td>' +
@@ -4290,6 +4313,7 @@ function stkMoveBind(draw) {
 }
 // หน้าย่อย: คำขอเบิก / รับเข้า จากหน้า "เบิกสินค้า Nok Air"
 function stkReqHtml() {
+  if (STK_RQ !== 'pending' && STK.reqs.some(r => r.status === 'pending') && !window.__rqPick) STK_RQ = 'pending';
   const ST = { pending: ['รออนุมัติ', 'doing'], approved: ['อนุมัติแล้ว', 'sent'], rejected: ['ไม่อนุมัติ', 'closed'] };
   const L = STK.reqs.filter(r => STK_RQ === 'all' || r.status === STK_RQ);
   let h = '<div class="rtabs"><select id="rqSt">' + [['pending', 'รออนุมัติ'], ['approved', 'อนุมัติแล้ว'], ['rejected', 'ไม่อนุมัติ'], ['all', 'ทั้งหมด']].map(o => '<option value="' + o[0] + '"' + (STK_RQ === o[0] ? ' selected' : '') + '>' + o[1] + ' (' + (o[0] === 'all' ? STK.reqs.length : STK.reqs.filter(r => r.status === o[0]).length) + ')</option>').join('') + '</select>' +
@@ -4311,7 +4335,7 @@ function stkReqHtml() {
   return h;
 }
 function stkReqBind(draw) {
-  $('rqSt').onchange = () => { STK_RQ = $('rqSt').value; draw(); };
+  $('rqSt').onchange = () => { STK_RQ = $('rqSt').value; window.__rqPick = STK_RQ !== 'pending'; draw(); };
   each('#zc .stkDoc', b => { b.onclick = () => stkDocView(b.dataset.f); });
   each('#zc .stkth', b => { b.onclick = () => stkPhotoView(b.dataset.f, b.dataset.n); });
   const want = []; each('#zc .stkth', b => { if (STK_TH[b.dataset.id] === undefined) want.push(b.dataset.id); });
@@ -4382,7 +4406,7 @@ async function deptStockPage(box, dept) {
     AC.hide();
     box.innerHTML = '<div class="pshead"><h4>Stock สินค้า</h4><span><button class="sec" id="dstQr">QR เบิกสินค้า</button><button class="sec" id="dstRe">รีเฟรช</button></span></div>' +
       '<div class="hint">ยอดคงเหลือจากการรับเข้า - เบิกออก (หน้า "เบิกสินค้า Nok Air" และที่ IFS บันทึก) · ดูอย่างเดียว</div>' +
-      '<div class="rtabs stkfil"><label class="dl">ประเภท <select id="dstK">' + stkKindOpts(DST_F.kind, 'ทั้งหมด (DOM + INTER)') + '</select></label>' +
+      '<div class="rtabs stkfil"><label class="dl">ประเภท <select id="dstK">' + stkKindOpts(DST_F.kind, 'ทั้งหมด') + '</select></label>' +
       '<input type="search" id="dstQ" placeholder="ค้นหา รหัสสินค้า / ชื่อสินค้า" value="' + esc(DST_F.q || '') + '" style="min-width:220px;flex:1"></div>' +
       '<div id="dstList">' + tableHtml() + '</div>' + histHtml();
     $('dstQr').onclick = reqQrBox;
@@ -9759,6 +9783,17 @@ function zoneTopics(zid) {
   // ตัดหัวข้อกลุ่มที่ไม่มีหน้าใต้หัวข้อออก
   return L.filter((t, i) => t[0] !== '-' || (L[i + 1] && L[i + 1][0] !== '-'));
 }
+// หัวข้อย่อยของแต่ละหน่วยงาน แสดงในเมนูซ้ายสุด ใต้ชื่อหน่วยงานที่เปิดอยู่ (จอเล็กใช้แถบหัวข้อในหน้าแทน)
+function sideSub(zid) {
+  each('#side .sdsub', x => x.remove());
+  const btn = document.querySelector('#side button[data-z="' + zid + '"]');
+  if (!btn || !ZONE_TOPICS[zid]) return;
+  const cur = ZONE_CUR[zid], d = document.createElement('div'); d.className = 'sdsub';
+  d.innerHTML = zoneTopics(zid).map(t => t[0] === '-' ? '<div class="sdsh">' + esc(T(t[1])) + '</div>' : '<button type="button" class="sdi' + (t[0] === cur ? ' on' : '') + '" data-t="' + t[0] + '">' + esc(T(t[1])) + '</button>').join('');
+  btn.insertAdjacentElement('afterend', d);
+  each('#side .sdi', b => { b.onclick = () => { if (b.dataset.t === ZONE_CUR[zid] && $('zc')) return; if ($('bacBox') && !bacLeaveOk()) return; BAC_DIRTY = false; if ($('app').dataset.z !== zid) { ZONE_CUR[zid] = b.dataset.t; go(zid); } else showZone(zid, b.dataset.t); }; });
+  if (typeof stkNavBadge === 'function' && zid === 'inflight') stkNavBadge();
+}
 function showZone(zid, topic) {
   if (zid === 'inflight' && topic === 'stock' && STK_SUB && STK_SUB !== 'stock') { topic = STK_SUB; }
   STK_SUB = '';
@@ -9773,6 +9808,7 @@ function showZone(zid, topic) {
     list.map(t => t[0] === '-' ? '<div class="zsep">' + esc(T(t[1])) + '</div>' : '<button class="' + (t[0] === topic ? 'on' : '') + '" data-t="' + t[0] + '">' + esc(T(t[1])) + '</button>').join('') +
     '</nav><section class="zbody" id="zc"></section></div>';
   each('.znav button', b => { b.onclick = () => { if (b.dataset.t === topic) return; if ($('bacBox') && !bacLeaveOk()) return; BAC_DIRTY = false; showZone(zid, b.dataset.t); }; });
+  sideSub(zid);
   const box = $('zc');
   const title = (list.filter(t => t[0] === topic)[0] || ['', ''])[1];
   if (topic === 'dash') dashPage(box);

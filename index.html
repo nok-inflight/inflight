@@ -489,11 +489,12 @@
   .znav .zsep:first-child { border-top: 0; margin-top: 0; padding-top: 4px; } .znav .zsep ~ button { padding-left: 20px; }
   h3 .zsub { font-size: 13px; font-weight: 400; color: #8a7a55; margin-left: 6px; }
   .stkselbar { gap: 10px; align-items: center; flex-wrap: wrap; margin: 6px 0; } .stkcnt span { display: inline-flex; align-items: center; gap: 5px; } .stkcnt .stkdot { width: 10px; height: 10px; }
-  table.stkt tr.off td { opacity: .45; } table.stkt.stklog { min-width: 0; } table.stkt.stklog td, table.stkt.stklog th { word-break: break-word; }
+  table.stkt tr.off td { opacity: .45; } table.stkt.stklog, table.stkt.stkl, table.stkt.dstt { table-layout: auto; min-width: 0 !important; width: 100%; } table.stkt.stklog td, table.stkt.stkl td, table.stkt.dstt td { white-space: normal; } table.stkt td small { overflow-wrap: anywhere; }
+  @media (min-width: 901px) and (max-width: 1280px) { .stklay { grid-template-columns: 1fr !important; } .stkside { position: static !important; max-height: 300px !important; overflow: auto; order: 2; } } table.stkt.stklog td, table.stkt.stklog th { word-break: break-word; }
   /* ช่องกรอกข้อมูลสูงเท่ากันทุกหน้า (ช่องเดียวกันในแถวเดียวกันตรงแนวกัน) */
   .qtform input:not([type=checkbox]):not([type=radio]):not([type=file]), .qtform select, .grid input:not([type=checkbox]):not([type=radio]):not([type=file]), .grid select, .rtabs input:not([type=checkbox]):not([type=radio]), .rtabs select, .stkfil input, .stkfil select, .dd > label > input:not([type=checkbox]):not([type=radio]), .dd > label > select { height: 36px; box-sizing: border-box; padding-top: 4px; padding-bottom: 4px; margin: 0; vertical-align: middle; }
   .qtform > button, .qtform > span > button { height: 36px; box-sizing: border-box; padding-top: 0; padding-bottom: 0; margin: 0; }
-  .qtform label { gap: 3px; justify-content: flex-end; } .rtabs .dl, .stkfil .dl { display: inline-flex; align-items: center; gap: 6px; } table.stkt.stkl { min-width: 600px; } table.stkt.stkl .stk-st { white-space: nowrap; } .stkfil { align-items: center; flex-wrap: wrap; gap: 8px; } table.dstt tr.lv-r td b { color: #c0392b; }
+  .qtform label { gap: 3px; justify-content: flex-end; } .rtabs .dl, .stkfil .dl { display: inline-flex; align-items: center; gap: 6px; }  table.stkt.stkl .stk-st { white-space: nowrap; } .stkfil { align-items: center; flex-wrap: wrap; gap: 8px; } table.dstt tr.lv-r td b { color: #c0392b; }
   .zbody { min-width: 0; }
   .zbody h4 { margin: 0 0 8px; font-size: 18px; }
   html[data-theme="dark"] .znav { background: #221f18; }
@@ -4028,7 +4029,8 @@ async function stkPage(box, sub) {
     if (STK_PG === 'move' && $('smT')) STK_MF = stkMoveKeep();
     let h = '<div class="pshead"><h4>' + title + '</h4><span><button class="sec" id="stkQr">QR เบิกสินค้า</button><button class="sec" id="stkRe">รีเฟรช</button></span></div>';
     if (STK_PG === 'big') { box.innerHTML = h + stkBigHtml(); stkBind(box, draw); return; }
-    h += '<div class="stklay"><div class="stkmain">' + (STK_PG === 'move' ? stkMoveHtml() : STK_PG === 'req' ? stkReqHtml() : stkStockHtml()) + '</div><aside class="stkside">' + stkSideHtml() + '</aside></div>';
+    // หน้ารับสินค้า - สินค้าออก ไม่มีแผงสถานะด้านขวา (ตารางกว้างเต็มหน้า)
+    h += STK_PG === 'move' ? '<div class="stkmain">' + stkMoveHtml() + '</div>' : '<div class="stklay"><div class="stkmain">' + (STK_PG === 'req' ? stkReqHtml() : stkStockHtml()) + '</div><aside class="stkside">' + stkSideHtml() + '</aside></div>';
     box.innerHTML = h;
     stkBind(box, draw);
   };
@@ -4092,7 +4094,7 @@ function stkListHtml() {
     h += '<div class="imp stkcat"><b>' + esc(cg[1]) + '</b> <small class="hint">' + list.length + ' รายการ</small>';
     if (!list.length) h += '<div class="hint" style="margin-top:6px">ยังไม่มีรายการ</div>';
     else {
-      h += '<div class="stkscroll"><table class="stkt stkl"><colgroup>' + (can ? ['30px'] : []).concat(['14%', '25%', '7%', '8%', '8%', '8%', '18%', '12%']).map(w => '<col style="width:' + w + '">').join('') + '</colgroup><thead><tr>' + (can ? '<th></th>' : '') +
+      h += '<div class="stkscroll"><table class="stkt stkl"><colgroup>' + (can ? ['34px'] : []).concat(['', '', '', '', '', '', '', '']).map(w => '<col' + (w ? ' style="width:' + w + '"' : '') + '>').join('') + '</colgroup><thead><tr>' + (can ? '<th></th>' : '') +
         '<th>รหัสสินค้า</th><th>รายการ</th><th>หน่วย</th><th class="r">รับเข้า</th><th class="r">เบิกออก</th><th class="r">คงเหลือ</th><th>สถานะ</th><th></th></tr></thead><tbody>';
       list.forEach(it => {
         const c = stkCalc(it);
@@ -4294,11 +4296,11 @@ function stkLogHtml() {
   const tin = L.filter(t => t.t === 'in').reduce((a, t) => a + t.q, 0), tout = L.filter(t => t.t === 'out').reduce((a, t) => a + t.q, 0);
   let h = '<div class="hint" style="margin:4px 0">รับเข้า ' + tin + ' · เบิกออก ' + tout + ' · ' + L.length + ' รายการ</div>';
   if (!L.length) return h + '<div class="imp"><b>ไม่มีรายการ' + (q ? 'ที่ตรงกับคำค้น' : 'ในช่วงวันที่นี้') + '</b></div>';
-  h += '<div class="stkscroll"><table class="stkt stklog"><colgroup>' + ['64px', '10%', '13%', '19%', '8%', '9%', '9%', '13%', '13%'].concat(can ? ['44px'] : []).map(w => '<col style="width:' + w + '">').join('') + '</colgroup><thead><tr><th>รูป</th><th>วันที่ เวลา</th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th class="r">จำนวน</th><th>หน่วยงาน</th><th>ผู้เบิก / ผู้รับ</th><th>หมายเหตุ</th>' + (can ? '<th></th>' : '') + '</tr></thead><tbody>';
+  h += '<div class="stkscroll"><table class="stkt stklog"><colgroup>' + ['74px', '', '', '', '', '', '', '', ''].concat(can ? ['48px'] : []).map(w => '<col' + (w ? ' style="width:' + w + '"' : '') + '>').join('') + '</colgroup><thead><tr><th>รูป</th><th>วันที่ เวลา</th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th class="r">จำนวน</th><th>หน่วยงาน</th><th>ผู้เบิก / ผู้รับ</th><th>หมายเหตุ</th>' + (can ? '<th></th>' : '') + '</tr></thead><tbody>';
   L.slice(0, 300).forEach(t => {
     const it = ids[t.item], th = STK_TH[t.id];
     h += '<tr><td>' + (t.photo ? '<button type="button" class="stkth" data-f="' + esc(t.photo) + '" data-n="' + esc(it.name + ' · ' + dmy(t.d)) + '" data-id="' + esc(t.id) + '">' + (th ? '<img src="' + th + '" alt="">' : 'รูป') + '</button>' : '<span class="hint">-</span>') + '</td>' +
-      '<td>' + esc(dmy(t.d)) + '<br><small class="hint">' + esc(t.time || '') + '</small></td><td class="wrap"><small>' + esc(it.sku || '-') + '</small></td><td class="wrap"><b>' + esc(it.name) + '</b><br><small class="hint">' + it.kind.toUpperCase() + (t.req ? ' · คำขอ ' + esc(t.req) : '') + '</small>' + (t.doc ? '<br><button type="button" class="sec stkDoc" data-f="' + esc(t.doc) + '">PDF</button>' : '') + '</td>' +
+      '<td style="white-space:nowrap">' + esc(dmy(t.d)) + '<br><small class="hint">' + esc(t.time || '') + '</small></td><td><small>' + esc(it.sku || '-') + '</small></td><td class="wrap"><b>' + esc(it.name) + '</b><br><small class="hint">' + it.kind.toUpperCase() + (t.req ? ' · คำขอ ' + esc(t.req) : '') + '</small>' + (t.doc ? '<br><button type="button" class="sec stkDoc" data-f="' + esc(t.doc) + '">PDF</button>' : '') + '</td>' +
       '<td>' + (t.t === 'in' ? '<span class="stk-in">รับเข้า</span>' : '<span class="stk-out">เบิกออก</span>') + '</td><td class="r"><b>' + t.q + '</b> ' + esc(it.unit) + '</td><td class="wrap">' + esc(t.to || '-') + '</td><td class="wrap">' + esc(t.signer || '-') + '<br><small class="hint">บันทึก ' + esc(t.by) + '</small></td><td class="wrap">' + esc(t.note || '') + '</td>' +
       (can ? '<td><button class="sec stkDel" data-id="' + t.id + '" title="ลบรายการนี้">✕</button></td>' : '') + '</tr>';
   });
@@ -4440,7 +4442,7 @@ async function deptStockPage(box, dept) {
   const tableHtml = () => {
     const L = list();
     if (!L.length) return '<div class="imp"><b>' + (DST.items.length ? 'ไม่พบสินค้าที่ตรงกับคำค้น' : 'ยังไม่มีสินค้าในระบบ') + '</b></div>';
-    return '<div class="hint" style="margin:4px 0">' + L.length + ' รายการ</div><div class="stkscroll"><table class="stkt dstt"><colgroup>' + ['76px', '17%', '33%', '10%', '12%', '12%', '16%'].map(w => '<col style="width:' + w + '">').join('') + '</colgroup>' +
+    return '<div class="hint" style="margin:4px 0">' + L.length + ' รายการ</div><div class="stkscroll"><table class="stkt dstt"><colgroup>' + ['80px', '', '', '', '', '', ''].map(w => '<col' + (w ? ' style="width:' + w + '"' : '') + '>').join('') + '</colgroup>' +
       '<thead><tr><th>รูป</th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th class="r">จำนวน</th><th>หน่วยนับ</th><th>หมวด</th></tr></thead><tbody>' +
       L.map(it => '<tr class="' + (it.bal <= 0 ? 'lv-r' : '') + '"><td>' + (it.photo ? '<button type="button" class="stkth" data-f="' + esc(it.photo) + '" data-n="' + esc(it.name) + '" data-id="' + esc(it.tid) + '">' + (DST_TH[it.tid] ? '<img src="' + DST_TH[it.tid] + '" alt="">' : 'รูป') + '</button>' : '<span class="hint">-</span>') + '</td>' +
         '<td class="wrap"><small>' + esc(it.sku || '-') + '</small></td><td class="wrap"><b>' + esc(it.name) + '</b></td><td>' + it.kind.toUpperCase() + '</td><td class="r"><b>' + it.bal + '</b></td><td>' + esc(it.unit || '-') + '</td><td class="wrap">' + esc(catName(it.cat)) + '</td></tr>').join('') + '</tbody></table></div>';
@@ -4449,9 +4451,9 @@ async function deptStockPage(box, dept) {
   const histHtml = () => {
     const ids = {}; DST.items.forEach(it => { ids[it.id] = it; });
     let h = '<h4 style="margin-top:18px">ประวัติเบิก / รับของ ' + esc(DST.dept || dept) + '</h4>';
-    if (DST.reqs.length) h += '<div class="imp"><b>คำขอจากหน้า "เบิกสินค้า Nok Air"</b><div class="stkscroll"><table class="stkt"><thead><tr><th>เลขคำขอ</th><th>วันที่</th><th>ประเภท</th><th>รายการ</th><th>สถานะ</th></tr></thead><tbody>' +
+    if (DST.reqs.length) h += '<div class="imp"><b>คำขอจากหน้า "เบิกสินค้า Nok Air"</b><div class="stkscroll"><table class="stkt dstt"><thead><tr><th>เลขคำขอ</th><th>วันที่</th><th>ประเภท</th><th>รายการ</th><th>สถานะ</th></tr></thead><tbody>' +
       DST.reqs.slice(0, 50).map(r => { const st = ST[r.status] || ST.pending; return '<tr><td><b>' + esc(r.no) + '</b><br><small class="hint">' + esc(r.name) + '</small></td><td>' + esc(dmy(r.d)) + '</td><td>' + (r.t === 'in' ? 'รับเข้า' : 'เบิก') + ' ' + esc(r.kind.toUpperCase()) + '</td><td class="wrap">' + r.items.map(x => (x.sku ? '<small class="hint">' + esc(x.sku) + '</small> ' : '') + esc(x.name) + ' × ' + x.q + ' ' + esc(x.unit || '')).join('<br>') + '</td><td><span class="qtst ' + st[1] + '">' + st[0] + '</span>' + (r.reason ? '<br><small class="hint">' + esc(r.reason) + '</small>' : '') + '</td></tr>'; }).join('') + '</tbody></table></div></div>';
-    h += DST.tx.length ? '<div class="imp"><b>รายการรับ / เบิกที่บันทึกแล้ว</b><div class="stkscroll"><table class="stkt"><thead><tr><th>วันที่</th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th class="r">จำนวน</th><th>ผู้เบิก / ผู้รับ</th></tr></thead><tbody>' +
+    h += DST.tx.length ? '<div class="imp"><b>รายการรับ / เบิกที่บันทึกแล้ว</b><div class="stkscroll"><table class="stkt dstt"><thead><tr><th>วันที่</th><th>รหัสสินค้า</th><th>สินค้า</th><th>ประเภท</th><th class="r">จำนวน</th><th>ผู้เบิก / ผู้รับ</th></tr></thead><tbody>' +
       DST.tx.slice(0, 100).map(t => { const it = ids[t.item] || {}; return '<tr><td>' + esc(dmy(t.d)) + '<br><small class="hint">' + esc(t.time || '') + '</small></td><td><small>' + esc(it.sku || '-') + '</small></td><td class="wrap">' + esc(it.name || '') + '<br><small class="hint">' + esc(String(it.kind || '').toUpperCase()) + (t.req ? ' · คำขอ ' + esc(t.req) : '') + '</small></td><td>' + (t.t === 'in' ? '<span class="stk-in">รับเข้า</span>' : '<span class="stk-out">เบิกออก</span>') + '</td><td class="r"><b>' + t.q + '</b> ' + esc(it.unit || '') + '</td><td class="wrap">' + esc(t.signer || '-') + '</td></tr>'; }).join('') + '</tbody></table></div></div>'
       : (DST.reqs.length ? '' : '<div class="hint">ยังไม่มีรายการเบิก / รับที่ระบุหน่วยงาน ' + esc(DST.dept || dept) + '</div>');
     return h;

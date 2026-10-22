@@ -782,7 +782,7 @@
   @keyframes hvIn { from { opacity: 0; } to { opacity: 1; } }
 
   /* ===== หน้าหลัก ===== */
-  .home { max-width: 1100px; }
+  .home { max-width: 1320px; margin: 0 auto; }
   .hero { position: relative; overflow: hidden; border-radius: 14px; padding: 22px 24px; min-height: 120px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; flex-wrap: wrap;
     background: linear-gradient(120deg, #8a6d2f 0%, #b8902f 45%, #fdc700 100%); color: #fff; box-shadow: 0 6px 18px rgba(138,109,47,.28); animation: hUp .5s ease-out both; }
   .hero .sky { position: absolute; inset: 0; pointer-events: none; }
@@ -1028,6 +1028,7 @@
 
   /* ===== เมนูด้านซ้าย ===== */
   #side { background: linear-gradient(180deg, #f1e8cd 0%, #e6d9b2 100%); box-shadow: inset -1px 0 0 rgba(138,109,47,.15); }
+  #side .sdh:not(:first-child) { margin-top: 12px; }
   #side .sdh { font-size: 11px; font-weight: bold; letter-spacing: 1.5px; color: #8a6d2f; padding: 6px 10px 4px; text-transform: uppercase; }
   #side .sdv { height: 1px; margin: 8px 8px; background: linear-gradient(90deg, rgba(138,109,47,.4), transparent); }
   #side button { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 10px; position: relative; font-size: 14px; transition: background .18s, transform .18s, box-shadow .18s; }
@@ -1896,9 +1897,11 @@ function enterApp(d) {
 
   if (d.zones.some(z => z.id === 'users')) d.zones = d.zones.filter(z => z.id !== 'staff');
   const sb = (id, t, soon) => '<button data-z="' + esc(id) + '"' + (soon ? ' class="soon"' : '') + '><span>' + esc(t) + '</span></button>';
-  let h = '<div class="sdh">เมนู</div>' + sb('home', 'หน้าหลัก') + sb('guide', 'คู่มือการใช้งาน') + '<div class="sdv"></div>';
+  let h = '<div class="sdh">เมนู</div>' + sb('home', 'หน้าหลัก') + sb('guide', 'คู่มือการใช้งาน') + '<div class="sdh">หน่วยงาน</div>';
+  let adm = false;
   d.zones.forEach(z => {
-    if (z.id === 'account') h += (d.role === 'admin' ? sb('system', 'ระบบ') : '') + '<div class="sdv"></div>';
+    if (!adm && ['users', 'forms', 'purge', 'staff'].indexOf(z.id) >= 0) { adm = true; h += '<div class="sdh">' + (d.role === 'admin' ? 'จัดการ' : 'อื่นๆ') + '</div>'; }
+    if (z.id === 'account') h += (d.role === 'admin' ? sb('system', 'ระบบ') : '') + '<div class="sdh">บัญชี</div>';
     h += sb(z.id, z.title, z.soon);
   });
   $('side').innerHTML = h;
@@ -4124,14 +4127,35 @@ function stkStockBind(draw) {
   $('siFile').onchange = async () => { const f = $('siFile').files[0]; $('siFile').value = ''; if (!f) return; try { STK_IMP = await stkImpRead(f); $('stkImpBox').open = true; $('siImp').innerHTML = stkImpHtml(); stkImpBind(draw); } catch (e) { toast(e.message); } };
   stkImpBind(draw);
 }
-// ----- นำเข้าจากไฟล์ Excel: หาแถวหัวตาราง (Item Name / Item Code / Unit / Category) · ยอดคงเหลือจากชีท Stock Control (DOM Stock / INT Stock) ถ้ามี -----
+// ----- นำเข้าจากไฟล์ Excel -----
+// 1) ทุกชีท: หาแถวหัวตาราง (10 แถวแรก) ที่มี ชื่อสินค้า (Item Name) + รหัสสินค้า (Item Code) · ชีทที่ไม่มีหัวตารางแบบนี้ข้ามไป
+// 2) ชีทที่มีคอลัมน์หมวด (Category) หรือชื่อ Master = ใช้ชีทนั้นชีทเดียว · ไม่มี = รวมทุกชีท (รหัส / ชื่อซ้ำใช้แถวแรก)
+// 3) หมวด: คอลัมน์หมวดในไฟล์ → ชื่อชีท → เดาจากชื่อสินค้า → อื่นๆ
+// 4) ยอดคงเหลือ: ชีทที่มี Item Name + DOM Stock / INT Stock (เช่น Stock Control) ใช้เป็นยอดยกมาได้ (ติ๊กเลือก)
+const STK_GUESS = [
+  ['crew', /(crew|uniform|apron|name ?tag|badge|ลูกเรือ|หมวก|ผ้ากันเปื้อน|ป้ายชื่อ|ชุดยูนิฟอร์ม)/i],
+  ['cabin', /(cup|napkin|tissue|straw|tray|spoon|fork|knife|stirrer|sick ?bag|headset|ear ?plug|wet ?wipe|ถ้วย|แก้วกระดาษ|ทิชชู|กระดาษเช็ด|หลอด|ช้อน|ส้อม|ถุงอาเจียน|ผ้าเย็น)/i],
+  ['mer', /(inhaler|oil\b|pillow|blanket|scarf|keychain|key ?ring|model|souvenir|otop|t-?shirt|shirt|tote|bag\b|mask|perfume|ยาดม|น้ำมัน|หมอน|ผ้าห่ม|ผ้าพันคอ|พวงกุญแจ|โมเดล|ของที่ระลึก|เสื้อ|กระเป๋า)/i],
+  ['fb', /(water|cola|coke|sprite|beer|juice|coffee|latte|tea\b|milo|nescaf|starbucks|drink|soda|pringles|popcorn|chips|lay'?s|nut|peanut|cashew|almond|cookie|gummy|noodle|mama|tom ?yum|sandwich|panini|bread|rice|mango|snack|cracker|chocolate|candy|biscuit|wafer|yoghurt|yogurt|vodka|wine|milk|sausage|pudding|cake|น้ำ|กาแฟ|ชา|เบียร์|ขนม|บะหมี่|ข้าว|ถั่ว|นม|เค้ก|คุกกี้)/i]
+];
+const stkGuessCat = name => { const h = STK_GUESS.filter(g => g[1].test(String(name || '')))[0]; return h ? h[0] : ''; };
+// ชื่อชีท → หมวด (ชื่อทั่วไปอย่าง Sheet1 / Master Data / Data ไม่นับเป็นหมวด)
+function stkSheetCat(sn) {
+  const n = String(sn || '').trim(), l = n.toLowerCase();
+  if (!n || /^(sheet|ชีท|แผ่นงาน)\s*\d*$/i.test(n) || /(master|data|list|รายการ|summary|สรุป|transaction|report|stock|daily|processed)/i.test(l) && !/(f&b|food|bev|mer|merch|otop|crew|cabin)/i.test(l)) return '';
+  if (/(f&b|food|bev|snack|drink|อาหาร|เครื่องดื่ม)/i.test(l)) return 'fb';
+  if (/(mer|merch|otop|souvenir|ของที่ระลึก)/i.test(l)) return 'mer';
+  if (/(crew|ลูกเรือ)/i.test(l)) return 'crew';
+  if (/(cabin|บนเครื่อง)/i.test(l)) return 'cabin';
+  return n.replace(/\s*(sales|ยอดขาย)\s*$/i, '').trim().slice(0, 40);
+}
 async function stkImpRead(f) {
   if (typeof XLSX === 'undefined') await loadScript('https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js');
   const wb = XLSX.read(await f.arrayBuffer(), { type: 'array' });
   const nm = v => String(v == null ? '' : v).trim().toLowerCase().replace(/\s+/g, ' ');
-  const find = (g, res) => { for (let r = 0; r < Math.min(g.length, 15); r++) { const row = (g[r] || []).map(nm); const at = res.map(re => row.findIndex(c => re.test(c))); if (at[0] >= 0) return { r: r, at: at }; } return null; };
-  const RN = /^(item name|ชื่อสินค้า|ชื่อ|รายการ|สินค้า|name|description)$/, RC = /^(item code|code|sku|รหัสสินค้า|รหัส|barcode|บาร์โค้ด)$/, RU = /^(unit|หน่วย|หน่วยนับ|uom)$/, RG = /^(category|หมวด|หมวดหมู่|cat)$/;
-  let best = null;
+  const find = (g, res) => { for (let r = 0; r < Math.min(g.length, 10); r++) { const row = (g[r] || []).map(nm); const at = res.map(re => row.findIndex(c => re.test(c))); if (at[0] >= 0) return { r: r, at: at }; } return null; };
+  const RN = /^(item name|ชื่อสินค้า|ชื่อ|รายการ|สินค้า|name|description|item)$/, RC = /^(item code|code|sku|รหัสสินค้า|รหัส|barcode|บาร์โค้ด)$/, RU = /^(unit|หน่วย|หน่วยนับ|uom)$/, RG = /^(category|หมวด|หมวดหมู่|cat)$/;
+  const sheets = [];
   wb.SheetNames.forEach(sn => {
     const g = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' });
     const hd = find(g, [RN, RC, RU, RG]); if (!hd || hd.at[1] < 0) return;
@@ -4139,34 +4163,43 @@ async function stkImpRead(f) {
     for (let r = hd.r + 1; r < g.length; r++) {
       const row = g[r] || [], name = String(row[hd.at[0]] || '').trim(); if (!name) continue;
       let sku = row[hd.at[1]]; sku = typeof sku === 'number' ? String(Math.round(sku)) : String(sku || '').trim();
-      rows.push({ name: name, sku: sku.replace(/\s+/g, ''), unit: hd.at[2] >= 0 ? String(row[hd.at[2]] || '').trim() : '', cat: hd.at[3] >= 0 ? String(row[hd.at[3]] || '').trim() : '' });
+      rows.push({ name: name, sku: sku.replace(/\s+/g, ''), unit: hd.at[2] >= 0 ? String(row[hd.at[2]] || '').trim() : '', fcat: hd.at[3] >= 0 ? String(row[hd.at[3]] || '').trim() : '', sheet: sn });
     }
-    const score = rows.length + (/master/i.test(sn) ? 1000 : 0);
-    if (rows.length && (!best || score > best.score)) best = { sheet: sn, rows: rows, score: score };
+    if (rows.length) sheets.push({ name: sn, rows: rows, hasCat: hd.at[3] >= 0, master: /master/i.test(sn) });
   });
-  if (!best) throw new Error('ไม่พบตารางที่มีคอลัมน์ Item Name และ Item Code (ชื่อสินค้า / รหัสสินค้า)');
-  // ยอดคงเหลือ (ถ้ามี): ชีทที่มี Item Name + DOM Stock / INT Stock
+  if (!sheets.length) throw new Error('ไม่พบตารางที่มีคอลัมน์ Item Name และ Item Code (ชื่อสินค้า / รหัสสินค้า)');
+  const main = sheets.filter(s => s.master)[0] || sheets.filter(s => s.hasCat).sort((a, b) => b.rows.length - a.rows.length)[0];
+  const use = main ? [main] : sheets;
+  // รวมแถว: รหัสสินค้า / ชื่อซ้ำใช้แถวแรก
+  const seen = {}, rows = [];
+  use.forEach(s => s.rows.forEach(x => { const k = (x.sku || '') + '|' + x.name.toLowerCase(); const k2 = x.name.toLowerCase(); if (seen[k] || seen['n|' + k2] || (x.sku && seen['s|' + x.sku])) return; seen[k] = seen['n|' + k2] = 1; if (x.sku) seen['s|' + x.sku] = 1; rows.push(x); }));
+  // หมวด + ที่มา
+  rows.forEach((x, i) => {
+    x.i = i; x.on = true;
+    const sc = stkSheetCat(x.sheet), gc = stkGuessCat(x.name);
+    if (x.fcat) { x.cat = x.fcat; x.src = 'ไฟล์'; } else if (sc) { x.cat = sc; x.src = 'ชื่อชีท'; } else if (gc) { x.cat = gc; x.src = 'เดาจากชื่อ'; } else { x.cat = 'other'; x.src = '-'; }
+  });
   const open = {};
   wb.SheetNames.forEach(sn => {
     const g = XLSX.utils.sheet_to_json(wb.Sheets[sn], { header: 1, raw: true, defval: '' });
     const hd = find(g, [/^(item name|ชื่อสินค้า)$/, /^dom stock$/, /^int(er)? stock$/]); if (!hd || (hd.at[1] < 0 && hd.at[2] < 0)) return;
-    for (let r = hd.r + 1; r < g.length; r++) { const row = g[r] || [], n = String(row[hd.at[0]] || '').trim().toLowerCase(); if (!n) continue; open[n] = { dom: Number(row[hd.at[1]]) || 0, inter: hd.at[2] >= 0 ? Number(row[hd.at[2]]) || 0 : 0 }; }
+    for (let r = hd.r + 1; r < g.length; r++) { const row = g[r] || [], n = String(row[hd.at[0]] || '').trim().toLowerCase(); if (!n) continue; open[n] = { dom: hd.at[1] >= 0 ? Number(row[hd.at[1]]) || 0 : 0, inter: hd.at[2] >= 0 ? Number(row[hd.at[2]]) || 0 : 0 }; }
   });
-  best.rows.forEach((x, i) => { x.i = i; x.on = true; const o = open[x.name.toLowerCase()]; x.open = o || null; });
-  return { file: f.name, sheet: best.sheet, rows: best.rows, hasOpen: Object.keys(open).length > 0, kind: 'both', cat: 'file', useOpen: false, q: '' };
+  rows.forEach(x => { x.open = open[x.name.toLowerCase()] || null; });
+  return { file: f.name, sheet: use.map(s => s.name).join(', '), skipped: sheets.filter(s => use.indexOf(s) < 0).map(s => s.name), rows: rows, hasOpen: Object.keys(open).length > 0, kind: 'both', cat: 'file', useOpen: false, q: '' };
 }
 function stkImpHtml() {
   const S = STK_IMP; if (!S) return '';
   const q = psKey(S.q || ''), L = S.rows.filter(x => !q || psKey(x.sku + ' ' + x.name).indexOf(q) >= 0), n = S.rows.filter(x => x.on).length;
   const ex = x => ['dom', 'inter'].filter(k => S.kind === 'both' || S.kind === k).map(k => stkFind(k, x.sku, x.name) ? 'แก้ไข' : 'ใหม่');
-  return '<div class="imp" style="margin-top:8px"><b>' + esc(S.file) + '</b> <span class="hint">ชีท ' + esc(S.sheet) + ' · ' + S.rows.length + ' รายการ</span>' +
+  return '<div class="imp" style="margin-top:8px"><b>' + esc(S.file) + '</b> <span class="hint">ใช้ชีท ' + esc(S.sheet) + ' · ' + S.rows.length + ' รายการ' + (S.skipped && S.skipped.length ? ' · ข้ามชีท ' + esc(S.skipped.join(', ')) + ' (ใช้ชีทที่มีหมวดแล้ว)' : '') + '</span>' +
     '<div class="dd" style="gap:8px;flex-wrap:wrap;margin:6px 0"><label class="dl">นำเข้าเป็น <select id="siImK"><option value="both"' + (S.kind === 'both' ? ' selected' : '') + '>DOM และ INTER</option><option value="dom"' + (S.kind === 'dom' ? ' selected' : '') + '>DOM</option><option value="inter"' + (S.kind === 'inter' ? ' selected' : '') + '>INTER</option></select></label>' +
-    '<label class="dl">หมวด <select id="siImC"><option value="file">ตามไฟล์ (ไม่มี = อื่นๆ)</option>' + stkCats().map(c => '<option value="' + esc(c[0]) + '"' + (S.cat === c[0] ? ' selected' : '') + '>' + esc(c[1]) + '</option>').join('') + '</select></label>' +
+    '<label class="dl">หมวด <select id="siImC"><option value="file">อัตโนมัติ (ไฟล์ → ชื่อชีท → เดาจากชื่อ → อื่นๆ)</option>' + stkCats().map(c => '<option value="' + esc(c[0]) + '"' + (S.cat === c[0] ? ' selected' : '') + '>' + esc(c[1]) + '</option>').join('') + '</select></label>' +
     (S.hasOpen ? '<label class="ck"><input type="checkbox" id="siImO"' + (S.useOpen ? ' checked' : '') + '> บันทึกยอดคงเหลือในไฟล์ (DOM Stock / INT Stock) เป็นยอดยกมา</label>' : '') + '</div>' +
     '<div class="dd" style="gap:8px;flex-wrap:wrap;margin:6px 0"><input type="search" id="siImQ" placeholder="ค้นหาในไฟล์ รหัสสินค้า / ชื่อสินค้า" value="' + esc(S.q || '') + '" style="flex:1;min-width:200px">' +
     '<label class="ck"><input type="checkbox" id="siImAll"' + (L.length && L.every(x => x.on) ? ' checked' : '') + '> เลือกทั้งหมดที่แสดง</label><button type="button" class="sec" id="siImNone">ไม่เลือกเลย</button></div>' +
-    '<div class="stkscroll" style="max-height:360px;overflow:auto"><table class="stkt scant"><thead><tr><th></th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>หมวดในไฟล์</th>' + (S.useOpen ? '<th class="r">ยอดยกมา</th>' : '') + '<th>ผล</th></tr></thead><tbody>' +
-    L.map(x => '<tr' + (x.on ? '' : ' class="off"') + '><td><input type="checkbox" class="siImCk" data-i="' + x.i + '"' + (x.on ? ' checked' : '') + '></td><td><small>' + esc(x.sku || '-') + '</small>' + (x.sku && x.sku.replace(/\D/g, '').length !== 13 ? ' <small class="hint">(' + x.sku.length + ' หลัก)</small>' : '') + '</td><td class="wrap">' + esc(x.name) + '</td><td>' + esc(x.unit) + '</td><td>' + esc(x.cat || '-') + '</td>' +
+    '<div class="stkscroll" style="max-height:360px;overflow:auto"><table class="stkt scant"><thead><tr><th></th><th>รหัสสินค้า</th><th>ชื่อสินค้า</th><th>หน่วย</th><th>หมวดที่จะใช้</th>' + (S.useOpen ? '<th class="r">ยอดยกมา</th>' : '') + '<th>ผล</th></tr></thead><tbody>' +
+    L.map(x => '<tr' + (x.on ? '' : ' class="off"') + '><td><input type="checkbox" class="siImCk" data-i="' + x.i + '"' + (x.on ? ' checked' : '') + '></td><td><small>' + esc(x.sku || '-') + '</small>' + (x.sku && x.sku.replace(/\D/g, '').length !== 13 ? ' <small class="hint">(' + x.sku.length + ' หลัก)</small>' : '') + '</td><td class="wrap">' + esc(x.name) + '</td><td>' + esc(x.unit) + '</td><td class="wrap">' + esc(S.cat === 'file' ? stkCatName(x.cat) : stkCatName(S.cat)) + (S.cat === 'file' && x.src !== 'ไฟล์' ? '<br><small class="hint">' + (x.src === '-' ? 'ไม่พบ ใส่อื่นๆ' : x.src) + '</small>' : '') + '</td>' +
       (S.useOpen ? '<td class="r">' + (x.open ? (S.kind !== 'inter' ? 'DOM ' + x.open.dom : '') + (S.kind === 'both' ? ' · ' : '') + (S.kind !== 'dom' ? 'INTER ' + x.open.inter : '') : '-') + '</td>' : '') + '<td class="hint">' + ex(x).join(' / ') + '</td></tr>').join('') +
     '</tbody></table></div><div class="dd" style="gap:6px;margin-top:8px;flex-wrap:wrap"><button type="button" id="siImGo"' + (n ? '' : ' disabled') + '>นำเข้า ' + n + ' รายการ</button><button type="button" class="sec" id="siImX">ยกเลิก</button></div></div>';
 }

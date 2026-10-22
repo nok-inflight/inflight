@@ -89,9 +89,10 @@ header { flex: none; display: flex; align-items: center; gap: 10px; padding: 8px
 .shq button { width: 48px; height: 48px; border-radius: 50%; border: 1px solid var(--gold); background: var(--card); color: var(--gold2); font-size: 26px; } .shq button:disabled { opacity: .4; }
 .tk { display: flex; gap: 10px; align-items: center; margin: 10px 0; padding: 8px; border: 1px dashed var(--line); border-radius: 12px; text-align: left; } .tk img { width: 90px; border-radius: 8px; } .tk .mut { color: var(--mut); font-size: 13px; }
 </style>
+<style>svg.ico{width:1em;height:1em;fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;vertical-align:-.15em}</style>
 </head>
 <body>
-<header><h1>✈️ NOK AIR · Sky Menu</h1><button class="lang" id="lang">EN</button></header>
+<header><h1>NOK AIR · Sky Menu</h1><button class="lang" id="lang">EN</button></header>
 <div class="off" id="off"></div>
 <div id="bookBox"><div class="bchips" id="bchips"></div><div class="stage" id="stage"><div class="book" id="book"></div></div><div class="bnav"><button id="bPrev">‹</button><span id="bPg"></span><button id="bNext">›</button></div></div>
 <div class="bar" id="bar"><div class="sum"><b id="bN"></b><small id="bT"></small></div><button id="bGo"></button></div>
@@ -166,6 +167,48 @@ var DocScan = (function () {
     g.putImageData(d, 0, 0); return o;
   }
   function jpg(c, q) { return c.toDataURL('image/jpeg', q || .82); }
+  // รูปสำหรับอ่านข้อความ (OCR): ขาวดำแบบนุ่ม ยืดความต่างสีเล็กน้อย ความละเอียดสูง (อ่านได้ชัดกว่ารูปขาวดำจัด)
+  function gray(c) {
+    var o = document.createElement('canvas'); o.width = c.width; o.height = c.height;
+    var g = o.getContext('2d'); g.drawImage(c, 0, 0);
+    var d = g.getImageData(0, 0, o.width, o.height), p = d.data, hist = new Array(256).fill(0), n = p.length / 4, i;
+    for (i = 0; i < p.length; i += 4) { var l = Math.round(p[i] * .299 + p[i + 1] * .587 + p[i + 2] * .114); p[i] = l; hist[l]++; }
+    var lo = 0, hi = 255, acc = 0; for (i = 0; i < 256; i++) { acc += hist[i]; if (acc > n * .01) { lo = i; break; } }
+    acc = 0; for (i = 255; i >= 0; i--) { acc += hist[i]; if (acc > n * .01) { hi = i; break; } }
+    var rng = Math.max(40, hi - lo);
+    for (i = 0; i < p.length; i += 4) { var v = Math.round((p[i] - lo) / rng * 255); v = v < 0 ? 0 : v > 255 ? 255 : v; p[i] = p[i + 1] = p[i + 2] = v; }
+    g.putImageData(d, 0, 0); return o;
+  }
+  // ----- ไฟล์ PDF: อ่านข้อความในไฟล์ (pdf.js) + รูปแต่ละหน้า · โหลดตัวอ่านไม่ได้ก็ยังแนบไฟล์และให้เซิร์ฟเวอร์อ่านแทน -----
+  var PDFJS = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/';
+  var PDF_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="110" height="150"><rect width="110" height="150" rx="8" fill="#fff"/><rect x="18" y="20" width="74" height="96" rx="4" fill="none" stroke="#c62828" stroke-width="4"/><text x="55" y="136" font-family="sans-serif" font-size="22" font-weight="700" fill="#c62828" text-anchor="middle">PDF</text></svg>');
+  function loadPdfJs() {
+    if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
+    return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js'; s.onload = function () { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); } catch (e) { ko(e); } }; s.onerror = function () { ko(new Error('โหลดตัวอ่าน PDF ไม่ได้')); }; document.head.appendChild(s); });
+  }
+  function tcText(tc) {
+    var out = '', lastY = null;
+    tc.items.forEach(function (it) { if (typeof it.str !== 'string') return; var y = it.transform ? Math.round(it.transform[5]) : 0; if (lastY !== null && Math.abs(y - lastY) > 2) out += '\n'; else if (out && !/\s$/.test(out) && it.str && !/^\s/.test(it.str)) out += ' '; out += it.str; lastY = y; });
+    return out.replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').trim();
+  }
+  function readPdf(f, max) {
+    return readFile(f).then(function (u) {
+      var b64 = String(u).split(',')[1] || '', name = f.name || 'file.pdf';
+      var bin = atob(b64), u8 = new Uint8Array(bin.length); for (var k = 0; k < bin.length; k++) u8[k] = bin.charCodeAt(k);
+      return loadPdfJs().then(function (lib) { return lib.getDocument({ data: u8 }).promise; }).then(function (doc) {
+        var n = Math.min(doc.numPages, max), pgs = [], texts = [], chain = Promise.resolve();
+        for (var i = 1; i <= n; i++) (function (i) {
+          chain = chain.then(function () { return doc.getPage(i); }).then(function (pg) {
+            var v0 = pg.getViewport({ scale: 1 }), sc = Math.min(3, 2000 / Math.max(v0.width, v0.height)), vp = pg.getViewport({ scale: sc });
+            var c = document.createElement('canvas'); c.width = Math.round(vp.width); c.height = Math.round(vp.height);
+            var g = c.getContext('2d'); g.fillStyle = '#fff'; g.fillRect(0, 0, c.width, c.height);
+            return pg.render({ canvasContext: g, viewport: vp }).promise.then(function () { return pg.getTextContent(); }).then(function (tc) { texts.push(tcText(tc)); pgs.push(c); });
+          });
+        })(i);
+        return chain.then(function () { return { b64: b64, name: name, canvases: pgs, text: texts.join('\n\n').trim(), total: doc.numPages }; });
+      }, function () { return { b64: b64, name: name, canvases: [], text: '', total: 0, raw: true }; });
+    });
+  }
   function loadJsPdf() {
     if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
     return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload = function () { ok(window.jspdf.jsPDF); }; s.onerror = function () { ko(new Error('โหลดตัวสร้าง PDF ไม่ได้')); }; document.head.appendChild(s); });
@@ -242,37 +285,50 @@ var DocScan = (function () {
       ov.querySelector('#dsOk').onclick = function () { done({ q: q.map(function (p) { return [p[0] / s, p[1] / s]; }), mode: mode }); };
     });
   }
-  function process(pg) { var w = warp(pg.src, pg.q, 1600); var o = pg.mode === 'color' ? w : enhance(w); pg.out = jpg(o, .8); pg.thumb = jpg(fitCanvas(o, 220), .7); return pg; }
+  function process(pg) {
+    var w = pg.pdf ? pg.src : warp(pg.src, pg.q, 2000), s = fitCanvas(w, 1600), o = pg.mode === 'color' ? s : enhance(s);
+    pg.out = jpg(o, .8); pg.thumb = jpg(fitCanvas(o, 220), .7); pg.ocr = jpg(gray(w), .9); return pg;
+  }
   // เปิดหน้าสแกน · opt: { title, max, pdf, ocr(pages b64[]) → Promise(text), hint, okText }
   function open(opt) {
     opt = opt || {}; css();
     return new Promise(function (resolve) {
-      var pages = [], max = opt.max || 10;
+      var pages = [], max = opt.max || 10, pdfSrc = null;
       var ov = el('div', 'dsov');
       var f1 = el('input'); f1.type = 'file'; f1.accept = 'image/*'; f1.setAttribute('capture', 'environment'); f1.style.display = 'none';
-      var f2 = el('input'); f2.type = 'file'; f2.accept = 'image/*'; f2.multiple = true; f2.style.display = 'none';
+      var f2 = el('input'); f2.type = 'file'; f2.accept = opt.pdfOk ? 'image/*,application/pdf,.pdf' : 'image/*'; f2.multiple = true; f2.style.display = 'none';
       document.body.appendChild(ov); ov.appendChild(f1); ov.appendChild(f2);
       function close(v) { ov.remove(); resolve(v); }
       function draw() {
         ov.querySelectorAll('.dsh,.dsbody,.dsf').forEach(function (n) { n.remove(); });
         var h = el('div', 'dsh', '<b>' + (opt.title || 'สแกนเอกสาร') + '</b><button class="dsb sec" id="dsX">ปิด</button>');
         var b = el('div', 'dsbody', (opt.hint ? '<div class="dshint">' + opt.hint + '</div>' : '') +
-          '<div class="dsadd"><button class="dsb" id="dsCam">📷 ถ่าย' + (pages.length ? 'หน้าถัดไป' : 'เอกสาร') + '</button><button class="dsb sec" id="dsPic">🖼 เลือกรูป</button></div>' +
+          '<div class="dsadd"><button class="dsb" id="dsCam">ถ่าย' + (pages.length ? 'หน้าถัดไป' : 'เอกสาร') + '</button><button class="dsb sec" id="dsPic">' + (opt.pdfOk ? 'เลือกรูป / ไฟล์ PDF' : 'เลือกรูป') + '</button></div>' +
+          (pdfSrc ? '<div class="dshint" style="margin-bottom:8px">ไฟล์ PDF: ' + pdfSrc.name.replace(/[<>&]/g, '') + (pdfSrc.total ? ' · ' + pdfSrc.total + ' หน้า' : '') + (pdfSrc.raw ? ' · แนบไฟล์แล้ว (ระบบจะอ่านข้อความให้ตอนกดเสร็จ)' : pdfSrc.text.replace(/\s/g, '').length >= 20 ? ' · มีข้อความในไฟล์' : ' · ไม่มีข้อความในไฟล์ จะอ่านจากรูปแทน') + '</div>' : '') +
           '<div class="dspg">' + pages.map(function (p, i) { return '<div class="pg"><img src="' + p.thumb + '" alt=""><span>หน้า ' + (i + 1) + '</span><div class="ac"><button class="dsb sec" data-e="' + i + '">ตัดขอบ</button><button class="dsb sec" data-d="' + i + '">ลบ</button></div></div>'; }).join('') + '</div>' +
           (pages.length ? '' : '<div class="dshint" style="margin-top:14px">วางเอกสารบนพื้นสีเข้ม ถ่ายให้เห็นมุมกระดาษครบทั้ง 4 มุม แสงสว่างพอ ไม่มีเงาบัง</div>'));
-        var f = el('div', 'dsf', '<button class="dsb" id="dsDone"' + (pages.length ? '' : ' disabled') + '>' + (opt.okText || 'เสร็จ') + (pages.length ? ' (' + pages.length + ' หน้า)' : '') + '</button>');
+        var f = el('div', 'dsf', '<button class="dsb" id="dsDone"' + (pages.length || pdfSrc ? '' : ' disabled') + '>' + (opt.okText || 'เสร็จ') + (pages.length ? ' (' + pages.length + ' หน้า)' : '') + '</button>');
         ov.appendChild(h); ov.appendChild(b); ov.appendChild(f);
         ov.querySelector('#dsX').onclick = function () { close(null); };
         ov.querySelector('#dsCam').onclick = function () { if (pages.length >= max) { alert('สแกนได้สูงสุด ' + max + ' หน้า'); return; } f1.click(); };
         ov.querySelector('#dsPic').onclick = function () { if (pages.length >= max) { alert('สแกนได้สูงสุด ' + max + ' หน้า'); return; } f2.click(); };
         Array.prototype.forEach.call(ov.querySelectorAll('[data-d]'), function (x) { x.onclick = function () { pages.splice(+x.dataset.d, 1); draw(); }; });
-        Array.prototype.forEach.call(ov.querySelectorAll('[data-e]'), function (x) { x.onclick = function () { var pg = pages[+x.dataset.e]; editor(pg).then(function (r) { if (r) { pg.q = r.q; pg.mode = r.mode; process(pg); } draw(); }); }; });
+        Array.prototype.forEach.call(ov.querySelectorAll('[data-e]'), function (x) { x.onclick = function () { var pg = pages[+x.dataset.e]; editor(pg).then(function (r) { if (r) { pg.q = r.q; pg.mode = r.mode; pg.pdf = false; process(pg); } draw(); }); }; });
         ov.querySelector('#dsDone').onclick = finish;
       }
       function add(files) {
-        var L = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type); }).slice(0, max - pages.length);
+        var isPdf = function (f) { return f.type === 'application/pdf' || /\.pdf$/i.test(f.name || ''); };
+        var L = Array.prototype.slice.call(files || []).filter(function (f) { return /^image\//.test(f.type) || (opt.pdfOk && isPdf(f)); }).slice(0, max - pages.length);
+        if (!L.length && files && files.length) { alert(opt.pdfOk ? 'เลือกได้เฉพาะรูปภาพหรือไฟล์ PDF' : 'เลือกได้เฉพาะรูปภาพ'); return; }
         var chain = Promise.resolve();
         L.forEach(function (f) {
+          if (isPdf(f)) {
+            chain = chain.then(function () { var d = ov.querySelector('.dsbody'); if (d) d.insertAdjacentHTML('afterbegin', '<div class="dshint">กำลังเปิดไฟล์ PDF...</div>'); return readPdf(f, max - pages.length); }).then(function (r) {
+              if (!pdfSrc) pdfSrc = { b64: r.b64, name: r.name, text: r.text, total: r.total, raw: !!r.raw, n: r.canvases.length };
+              r.canvases.forEach(function (c) { pages.push(process({ src: c, mode: 'color', pdf: true })); });
+            });
+            return;
+          }
           chain = chain.then(function () { return readFile(f); }).then(loadImg).then(function (im) {
             var pg = { src: fitCanvas(im, 2000), mode: opt.mode || 'bw' };
             return editor(pg).then(function (r) { if (!r) return; pg.q = r.q; pg.mode = r.mode; process(pg); pages.push(pg); });
@@ -284,13 +340,17 @@ var DocScan = (function () {
       f2.onchange = function () { var fs = f2.files; add(fs); f2.value = ''; };
       function finish() {
         var bt = ov.querySelector('#dsDone'); bt.disabled = true; bt.textContent = 'กำลังเตรียมไฟล์...';
-        var res = { pages: pages.map(function (p) { return p.out; }), thumbs: pages.map(function (p) { return p.thumb; }), pdf: '', text: '' };
-        var p1 = opt.pdf === false ? Promise.resolve('') : toPdf(pages);
+        // ไฟล์ PDF ที่เลือก (ไม่ได้เพิ่ม / ลบหน้า) = ใช้ไฟล์เดิมเลย ไม่สร้างใหม่
+        var onlyPdf = !!pdfSrc && pages.every(function (p) { return p.pdf; }) && pages.length === pdfSrc.n;
+        var res = { pages: pages.map(function (p) { return p.out; }), thumbs: pages.length ? pages.map(function (p) { return p.thumb; }) : [PDF_ICON], pdf: '', text: '', fromPdf: onlyPdf, fileName: pdfSrc ? pdfSrc.name : '' };
+        var p1 = onlyPdf ? Promise.resolve(pdfSrc.b64) : opt.pdf === false ? Promise.resolve('') : toPdf(pages);
         p1.then(function (pdf) {
           res.pdf = pdf;
           if (!opt.ocr) return '';
+          if (onlyPdf && pdfSrc.text.replace(/\s/g, '').length >= 20) return pdfSrc.text;
           bt.textContent = 'กำลังอ่านข้อความ...';
-          return opt.ocr(pages.slice(0, opt.ocrPages || 3).map(function (p) { return { b64: p.out.split(',')[1], mime: 'image/jpeg' }; })).catch(function (e) { res.ocrError = e.message || String(e); return ''; });
+          var src = pages.length ? pages.slice(0, opt.ocrPages || 3).map(function (p) { return { b64: (p.ocr || p.out).split(',')[1], mime: 'image/jpeg' }; }) : [{ b64: pdfSrc.b64, mime: 'application/pdf' }];
+          return opt.ocr(src).catch(function (e) { res.ocrError = e.message || String(e); return ''; });
         }).then(function (t) { res.text = t || ''; close(res); }, function (e) { alert(e.message || e); bt.disabled = false; bt.textContent = opt.okText || 'เสร็จ'; });
       }
       draw();
@@ -422,7 +482,7 @@ function setSpread(on) {
 try { if (sessionStorage.getItem('sky_open') === '1') CUR = 1; } catch (e) { }
 function bookBuild() {
   if (BOOK_OK) return; BOOK_OK = true;
-  var h = '<div class="leaf cover" data-i="0"><div class="bk">📖</div><h2>NOK AIR</h2><p>Sky Menu</p><p style="font-size:13px">' + esc(T('sub')) + '</p><div class="open">' + esc(T('cv')) + '</div><p style="font-size:calc(12px * var(--u,1));margin-top:14px;opacity:.9">' + esc(T('hint')) + '</p></div>';
+  var h = '<div class="leaf cover" data-i="0"><div class="bk"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5a2 2 0 0 1 2-2h12v15H6a2 2 0 0 0-2 2zM4 20a2 2 0 0 0 2 1h12v-3"/></svg></div><h2>NOK AIR</h2><p>Sky Menu</p><p style="font-size:13px">' + esc(T('sub')) + '</p><div class="open">' + esc(T('cv')) + '</div><p style="font-size:calc(12px * var(--u,1));margin-top:14px;opacity:.9">' + esc(T('hint')) + '</p></div>';
   BOOK.forEach(function (pg, k) {
     h += '<div class="leaf" data-i="' + (k + 1) + '"><img class="pg" alt="" data-i="' + pg.src + '"><i class="sp"></i>' + pg.hs.map(function (o, j) {
       var r = o.r, st = 'left:' + (r[0] / 5.95).toFixed(2) + '%;top:' + (r[1] / 8.42).toFixed(2) + '%;width:' + (r[2] / 5.95).toFixed(2) + '%;height:' + (r[3] / 8.42).toFixed(2) + '%';
@@ -508,8 +568,8 @@ function openOrder() {
   $('ov').className = 'ov on';
   $('ov').innerHTML = '<h2>' + T('cart') + '</h2>' + c.map(function (x) { return '<div class="row"><span>' + esc(x.name) + ' × ' + x.q + '</span><b>฿' + money(x.q * x.price) + '</b></div>'; }).join('') +
     '<div class="tot"><span>' + T('total') + '</span><span>฿' + money(t) + '</span></div>' +
-    '<p class="note" style="margin-top:12px">' + (L === 'th' ? '🎫 ต้องสแกนตั๋ว / บัตรขึ้นเครื่องก่อนสั่งซื้อ ลูกเรือจะตรวจตั๋วกับที่นั่งตอนนำสินค้ามาให้' : '🎫 Please scan your boarding pass before ordering. The crew will check it against your seat.') + '</p>' +
-    '<button class="btn' + (TK ? ' sec' : '') + '" id="tk">' + (TK ? (L === 'th' ? '📷 สแกนตั๋วใหม่' : '📷 Scan again') : (L === 'th' ? '📷 สแกนตั๋ว / บัตรขึ้นเครื่อง' : '📷 Scan boarding pass')) + '</button><div id="tkOut">' + tkHtml() + '</div>' +
+    '<p class="note" style="margin-top:12px">' + (L === 'th' ? 'ต้องสแกนตั๋ว / บัตรขึ้นเครื่องก่อนสั่งซื้อ ลูกเรือจะตรวจตั๋วกับที่นั่งตอนนำสินค้ามาให้' : 'Please scan your boarding pass before ordering. The crew will check it against your seat.') + '</p>' +
+    '<button class="btn' + (TK ? ' sec' : '') + '" id="tk">' + (TK ? (L === 'th' ? 'สแกนตั๋วใหม่' : 'Scan again') : (L === 'th' ? 'สแกนตั๋ว / บัตรขึ้นเครื่อง' : 'Scan boarding pass')) + '</button><div id="tkOut">' + tkHtml() + '</div>' +
     '<div id="seatBox"' + (TK ? '' : ' style="display:none"') + '><label>' + T('seatL') + '</label><input id="seat" maxlength="4" placeholder="' + T('seatP') + '" value="' + esc(TK && TK.seat || SEAT) + '" autocomplete="off"></div>' +
     '<button class="btn" id="ok"' + (TK ? '' : ' disabled style="opacity:.45"') + '>' + T('conf') + '</button><button class="btn sec" id="bk">' + T('back') + '</button>';
   $('bk').onclick = function () { $('ov').className = 'ov'; };
@@ -524,7 +584,7 @@ function openOrder() {
 function showQr(c, t) {
   var code = 'IFSO1:' + OID + '|' + SEAT + '|' + c.map(function (x) { return encodeURIComponent(x.name) + '=' + x.q; }).join(';');
   var svg = ''; try { var q = qrcode(0, 'M'); q.addData(code); q.make(); svg = q.createSvgTag({ cellSize: 6, margin: 2 }); } catch (e) { svg = '<p>QR error</p>'; }
-  $('ov').innerHTML = '<div class="seat">✈ ' + esc(SEAT) + '</div><p class="big"><b>' + T('show') + '</b></p><div class="qr">' + svg + '</div>' + tkHtml() +
+  $('ov').innerHTML = '<div class="seat">' + esc(SEAT) + '</div><p class="big"><b>' + T('show') + '</b></p><div class="qr">' + svg + '</div>' + tkHtml() +
     c.map(function (x) { return '<div class="row"><span>' + esc(x.name) + ' × ' + x.q + '</span><b>฿' + money(x.q * x.price) + '</b></div>'; }).join('') +
     '<div class="tot"><span>' + T('total') + '</span><span>฿' + money(t) + '</span></div><p class="note">' + T('how') + '</p>' +
     '<button class="btn sec" id="bk">' + T('back') + '</button><button class="btn sec" id="nw">' + T('newo') + '</button>';
@@ -561,7 +621,7 @@ var TK = null;
 function tkHtml() {
   if (!TK) return '';
   var th = L === 'th';
-  return '<div class="tk"><img src="' + TK.thumb + '" alt=""><div>' + (TK.flight ? '<div>✈ <b>' + esc(TK.flight) + '</b>' + (TK.route ? ' · ' + esc(TK.route) : '') + (TK.date ? ' · ' + esc(TK.date) : '') + '</div>' : '') + (TK.seat ? '<div>' + (th ? 'ที่นั่ง' : 'Seat') + ' <b>' + esc(TK.seat) + '</b></div>' : '') + (TK.name ? '<div>' + esc(TK.name) + '</div>' : '') +
+  return '<div class="tk"><img src="' + TK.thumb + '" alt=""><div>' + (TK.flight ? '<div><b>' + esc(TK.flight) + '</b>' + (TK.route ? ' · ' + esc(TK.route) : '') + (TK.date ? ' · ' + esc(TK.date) : '') + '</div>' : '') + (TK.seat ? '<div>' + (th ? 'ที่นั่ง' : 'Seat') + ' <b>' + esc(TK.seat) + '</b></div>' : '') + (TK.name ? '<div>' + esc(TK.name) + '</div>' : '') +
     (!TK.flight && !TK.seat ? '<div class="mut">' + (th ? 'อ่านข้อมูลบนตั๋วไม่ได้ · กรอกเลขที่นั่งเอง' : 'Could not read the pass · enter your seat') + (TK.err ? '<br><small>(' + esc(TK.err) + ')</small>' : '') + '</div>' : '') + '</div></div>';
 }
 // อ่านข้อความจากตั๋ว (OCR) · รองรับรูปแบบตั๋ว Nok Air ที่หัวข้ออยู่บรรทัดหนึ่ง ค่าอยู่บรรทัดถัดไป เช่น "SEAT:" / "22C/AISLE"

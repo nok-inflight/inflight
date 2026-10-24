@@ -1,5 +1,5 @@
 // Inflight Operations · ให้หน้าเว็บเปิดได้ตอนไม่มีอินเทอร์เน็ต (วางไฟล์นี้ไว้โฟลเดอร์เดียวกับ index.html บน GitHub)
-const CACHE = 'ifs-v3';
+const CACHE = 'ifs-v4'; // v4: ไลบรารีโหลดแบบ CORS + SRI (ล้างแคชเก่าแบบ opaque)
 const CORE = ['./', './index.html', './manifest.json', './icon-192.png', './icon-512.png'];
 self.addEventListener('install', e => {
   e.waitUntil(caches.open(CACHE).then(c => Promise.all(CORE.map(u => c.add(u).catch(() => null)))).then(() => self.skipWaiting()));
@@ -22,6 +22,7 @@ self.addEventListener('fetch', e => {
   }
   // ไลบรารี (Excel ฯลฯ) และรูป: ใช้ที่เก็บไว้ก่อน แล้วอัปเดตเบื้องหลัง
   e.respondWith(caches.match(req).then(hit => {
+    if (hit && hit.type === 'opaque' && req.mode === 'cors') hit = null; // ไฟล์ที่ตรวจ SRI ต้องเป็นแบบ CORS
     const net = fetch(req).then(r => { if (r && (r.ok || r.type === 'opaque')) { const c = r.clone(); caches.open(CACHE).then(x => x.put(req, c)); } return r; }).catch(() => hit);
     return hit || net;
   }));

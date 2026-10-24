@@ -2,6 +2,27 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
+<script>
+// ===== ความปลอดภัย: CSP (กำหนดว่าหน้าเว็บโหลดสคริปต์ / ส่งข้อมูลไปที่ไหนได้บ้าง) + SRI (ลายนิ้วมือไฟล์ไลบรารีจาก CDN) =====
+(function () {
+  if (/googleusercontent\.com$/.test(location.hostname) || !/^https?:$/.test(location.protocol)) return; // หน้าใน Apps Script ใช้ CSP ของ Google
+  var m = document.createElement('meta'); m.httpEquiv = 'Content-Security-Policy';
+  m.content = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://nok-inflight.github.io; " +
+    "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cdnjs.cloudflare.com data: blob:; " +
+    "img-src 'self' data: blob: https:; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; " +
+    "frame-src 'self' https: blob: data:; worker-src 'self' blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'";
+  document.head.appendChild(m);
+})();
+var CDN_SRI = {
+  'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js': 'sha512-dlPw+ytv/6JyepmelABrgeYgHI0O+frEwgfnPdXDTOIZz+eDgfW07QXG02/O8COfivBdGNINy+Vex+lYmJ5rxw==',
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js': 'sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js': 'sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js': 'sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=='
+};
+// ใส่ลายนิ้วมือ (SRI) ให้สคริปต์ที่โหลดจาก CDN: ถ้าไฟล์ถูกแก้ เบราว์เซอร์จะไม่ยอมรัน
+function sriScript(s, src) { if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.crossOrigin = 'anonymous'; } return s; }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#8a6d2f">
 <title>เบิกสินค้า Nok Air</title>
@@ -51,7 +72,7 @@ label.lb { margin-top: 0; font-weight: 600; color: var(--mut); }
 <body>
 <header><span class="ico"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 7l9-4 9 4v10l-9 4-9-4zM3 7l9 4 9-4M12 11v10"/></svg></span><h1>เบิกสินค้า Nok Air</h1><p>แบบฟอร์มคำขอเบิก / รับเข้าสินค้า · เจ้าหน้าที่ IFS จะตรวจและอนุมัติ</p></header>
 <main id="app"><div class="card"><span class="hint">กำลังโหลดรายการสินค้า...</span></div></main>
-<p class="hint" style="text-align:center;margin:0 0 24px">แบบฟอร์มเวอร์ชัน 2026-10-29</p>
+<p class="hint" style="text-align:center;margin:0 0 24px">แบบฟอร์มเวอร์ชัน 2026-11-04</p>
 <div id="toast"></div><div id="busy"><span id="busyT">กำลังส่ง...</span></div>
 <script>
 // ===== DocScan: สแกนเอกสารด้วยกล้อง (ตัดขอบ / ดัดให้ตรง / ทำให้ชัด / รวม PDF / อ่านข้อความ) · ใช้ได้ทั้งเว็บหลัก แบบฟอร์มเบิกสินค้า และเมนูผู้โดยสาร =====
@@ -140,7 +161,7 @@ var DocScan = (function () {
   var PDF_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="110" height="150"><rect width="110" height="150" rx="8" fill="#fff"/><rect x="18" y="20" width="74" height="96" rx="4" fill="none" stroke="#c62828" stroke-width="4"/><text x="55" y="136" font-family="sans-serif" font-size="22" font-weight="700" fill="#c62828" text-anchor="middle">PDF</text></svg>');
   function loadPdfJs() {
     if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-    return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js'; s.onload = function () { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); } catch (e) { ko(e); } }; s.onerror = function () { ko(new Error('โหลดตัวอ่าน PDF ไม่ได้')); }; document.head.appendChild(s); });
+    return new Promise(function (ok, ko) { var s = document.createElement('script'); if (window.sriScript) sriScript(s, PDFJS + 'pdf.min.js'); s.src = PDFJS + 'pdf.min.js'; s.onload = function () { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); } catch (e) { ko(e); } }; s.onerror = function () { ko(new Error('โหลดตัวอ่าน PDF ไม่ได้')); }; document.head.appendChild(s); });
   }
   function tcText(tc) {
     var out = '', lastY = null;
@@ -167,7 +188,7 @@ var DocScan = (function () {
   }
   function loadJsPdf() {
     if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
-    return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload = function () { ok(window.jspdf.jsPDF); }; s.onerror = function () { ko(new Error('โหลดตัวสร้าง PDF ไม่ได้')); }; document.head.appendChild(s); });
+    return new Promise(function (ok, ko) { var s = document.createElement('script'); if (window.sriScript) sriScript(s, 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload = function () { ok(window.jspdf.jsPDF); }; s.onerror = function () { ko(new Error('โหลดตัวสร้าง PDF ไม่ได้')); }; document.head.appendChild(s); });
   }
   // รวมหน้าเป็น PDF (A4 · รูปพอดีหน้า)
   function toPdf(pages) {
@@ -337,6 +358,8 @@ var DocScan = (function () {
 </script>
 <script>
 // แบบฟอร์มสาธารณะ (ไม่ต้องล็อกอิน) · ส่งคำขอเข้า Inflight › Stock สินค้า › คำขอเบิก
+// รหัสเครื่องแบบสุ่ม (ใช้จำกัดจำนวนคำขอต่อชั่วโมง ไม่ได้เก็บข้อมูลส่วนตัว)
+function reqDev() { var k = 'io_dev', v = ''; try { v = localStorage.getItem(k) || ''; if (!v) { v = Date.now().toString(36) + Math.random().toString(36).slice(2, 10); localStorage.setItem(k, v); } } catch (e) { } return v; }
 var API_URL = 'https://script.google.com/macros/s/AKfycbzLCpK8mopOQgxyJqccne-C-ER132gfshhgg0DEjkbscZfE6o2AJJZgHXH50larQjUA/exec';
 // ===== ช่องค้นหาแบบมีรายการให้เลือก: พิมพ์ตัวเดียวก็ขึ้นรายการ · พิมพ์ต่อรายการเปลี่ยนตาม · ลบข้อความแล้วรายการหายไป =====
 var AC = (function () {
@@ -490,7 +513,7 @@ function draw() {
     });
     AC.bind(x, function (q) {
       var L = S.items.filter(function (y) { return y.kind === S.kind; });
-      return AC.items(L, q, 30).map(function (y) { return { t: label(y), s: (catsOf(L).filter(function (c) { return c[0] === y.cat; })[0] || ['', y.cat])[1], id: y.id }; })
+      return AC.items(L, q, 30).map(function (y) { return { t: label(y), s: (catsOf(L).filter(function (c) { return c[0] === y.cat; })[0] || ['', y.cat])[1] + (y.owner === 'ELG' ? ' · สินค้า ELG' : ''), id: y.id }; })
         .concat([{ t: (S.t === 'in' ? '+ สินค้าใหม่ (ยังไม่มีในระบบ): ' : '+ สินค้าอื่น (ไม่มีในรายการ): ') + q, cls: 'acnew', nw: q }]);
     }, function (y) {
       keep(); var r = S.rows[i];
@@ -546,7 +569,7 @@ function draw() {
     $('bGo').disabled = true;
     try {
       busy(true, 'กำลังส่งคำขอ' + (S.photo || S.doc ? 'และอัปโหลดไฟล์' : '') + '...');
-      var r = await api('ioPubIStockReq', [{ kind: S.kind, t: S.t, d: S.d, items: items, name: S.name, dept: S.dept, phone: S.tel, note: S.note, ocr: S.doc ? S.doc.text : '' }, S.photo, S.doc ? { b64: S.doc.b64 } : null]);
+      var r = await api('ioPubIStockReq', [{ dev: reqDev(), kind: S.kind, t: S.t, d: S.d, items: items, name: S.name, dept: S.dept, phone: S.tel, note: S.note, ocr: S.doc ? S.doc.text : '' }, S.photo, S.doc ? { b64: S.doc.b64 } : null]);
       window.scrollTo(0, 0);
       $('app').innerHTML = '<div class="card ok"><div class="big" style="color:var(--ok)"><svg class="ico" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12l5 5 9-10"/></svg></div><h2>ส่งคำขอแล้ว (' + items.length + ' รายการ)</h2><div class="hint">เลขคำขอ</div><div class="no">' + esc(r.no) + '</div><p class="hint">จดเลขนี้ไว้ตรวจสถานะ · เจ้าหน้าที่ IFS จะตรวจและอนุมัติ</p><button id="bNew">ส่งคำขอใหม่</button></div>';
       $('bNew').onclick = function () { S.rows = [blankRow()]; S.photo = null; S.doc = null; S.note = ''; draw(); };

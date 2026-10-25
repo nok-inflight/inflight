@@ -2,6 +2,27 @@
 <html lang="th">
 <head>
 <meta charset="utf-8">
+<script>
+// ===== ความปลอดภัย: CSP (กำหนดว่าหน้าเว็บโหลดสคริปต์ / ส่งข้อมูลไปที่ไหนได้บ้าง) + SRI (ลายนิ้วมือไฟล์ไลบรารีจาก CDN) =====
+(function () {
+  if (/googleusercontent\.com$/.test(location.hostname) || !/^https?:$/.test(location.protocol)) return; // หน้าใน Apps Script ใช้ CSP ของ Google
+  var m = document.createElement('meta'); m.httpEquiv = 'Content-Security-Policy';
+  m.content = "default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://nok-inflight.github.io; " +
+    "connect-src 'self' https://script.google.com https://script.googleusercontent.com https://cdnjs.cloudflare.com data: blob:; " +
+    "img-src 'self' data: blob: https:; media-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; font-src 'self' data:; " +
+    "frame-src 'self' https: blob: data:; worker-src 'self' blob: https://cdnjs.cloudflare.com; object-src 'none'; base-uri 'self'; form-action 'self'";
+  document.head.appendChild(m);
+})();
+var CDN_SRI = {
+  'https://cdnjs.cloudflare.com/ajax/libs/exceljs/4.4.0/exceljs.min.js': 'sha512-dlPw+ytv/6JyepmelABrgeYgHI0O+frEwgfnPdXDTOIZz+eDgfW07QXG02/O8COfivBdGNINy+Vex+lYmJ5rxw==',
+  'https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js': 'sha512-XMVd28F1oH/O71fzwBnV7HucLxVwtxf26XV8P4wPk26EDxuGZ91N8bsOttmnomcCD3CS5ZMRL50H0GgOHvegtg==',
+  'https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js': 'sha512-r22gChDnGvBylk90+2e/ycr3RVrDi8DIOkIGNhJlKfuyQM4tIRAI062MaV8sfjQKYVGjOBaZBOA87z+IhZE9DA==',
+  'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js': 'sha512-qZvrmS2ekKPF2mSznTQsxqPgnpkI4DNTlrdUmTzrDgektczlKNRRhy5X5AAOnx5S09ydFYWWNSfcEqDTTHgtNA==',
+  'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js': 'sha512-q+4liFwdPC/bNdhUpZx6aXDx/h77yEQtn4I1slHydcbZK34nLaR3cAeYSJshoxIOq3mjEf7xJE8YWIUHMn+oCQ=='
+};
+// ใส่ลายนิ้วมือ (SRI) ให้สคริปต์ที่โหลดจาก CDN: ถ้าไฟล์ถูกแก้ เบราว์เซอร์จะไม่ยอมรัน
+function sriScript(s, src) { if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.crossOrigin = 'anonymous'; } return s; }
+</script>
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="theme-color" content="#8a6d2f">
 <title>Nok Air · Sky Menu</title>
@@ -184,7 +205,7 @@ var DocScan = (function () {
   var PDF_ICON = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent('<svg xmlns="http://www.w3.org/2000/svg" width="110" height="150"><rect width="110" height="150" rx="8" fill="#fff"/><rect x="18" y="20" width="74" height="96" rx="4" fill="none" stroke="#c62828" stroke-width="4"/><text x="55" y="136" font-family="sans-serif" font-size="22" font-weight="700" fill="#c62828" text-anchor="middle">PDF</text></svg>');
   function loadPdfJs() {
     if (window.pdfjsLib) return Promise.resolve(window.pdfjsLib);
-    return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = PDFJS + 'pdf.min.js'; s.onload = function () { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); } catch (e) { ko(e); } }; s.onerror = function () { ko(new Error('โหลดตัวอ่าน PDF ไม่ได้')); }; document.head.appendChild(s); });
+    return new Promise(function (ok, ko) { var s = document.createElement('script'); if (window.sriScript) sriScript(s, PDFJS + 'pdf.min.js'); s.src = PDFJS + 'pdf.min.js'; s.onload = function () { try { window.pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS + 'pdf.worker.min.js'; ok(window.pdfjsLib); } catch (e) { ko(e); } }; s.onerror = function () { ko(new Error('โหลดตัวอ่าน PDF ไม่ได้')); }; document.head.appendChild(s); });
   }
   function tcText(tc) {
     var out = '', lastY = null;
@@ -211,7 +232,7 @@ var DocScan = (function () {
   }
   function loadJsPdf() {
     if (window.jspdf && window.jspdf.jsPDF) return Promise.resolve(window.jspdf.jsPDF);
-    return new Promise(function (ok, ko) { var s = document.createElement('script'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload = function () { ok(window.jspdf.jsPDF); }; s.onerror = function () { ko(new Error('โหลดตัวสร้าง PDF ไม่ได้')); }; document.head.appendChild(s); });
+    return new Promise(function (ok, ko) { var s = document.createElement('script'); if (window.sriScript) sriScript(s, 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'); s.src = 'https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js'; s.onload = function () { ok(window.jspdf.jsPDF); }; s.onerror = function () { ko(new Error('โหลดตัวสร้าง PDF ไม่ได้')); }; document.head.appendChild(s); });
   }
   // รวมหน้าเป็น PDF (A4 · รูปพอดีหน้า)
   function toPdf(pages) {

@@ -1316,6 +1316,7 @@ function sriScript(s, src) { if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.c
   .akf { display: flex; justify-content: flex-end; gap: 6px; } .akf button { margin: 0; }
   .mysc { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px; margin: 8px 0; }
   .mysbar > div { display: grid; grid-template-columns: minmax(120px, 220px) 1fr 50px; align-items: center; gap: 8px; margin: 4px 0; font-size: 13px; }
+  .stkpic img.std, .stkpvpic img.std { object-fit: contain !important; background: transparent !important; }
   img.pth { width: 26px; height: 26px; object-fit: contain; vertical-align: middle; margin-right: 6px; flex: none; filter: drop-shadow(0 1px 1px rgba(0,0,0,.18)); }
   .mysbar span img.pth, .dsrest span img.pth { width: 22px; height: 22px; }
   .dspo .dspi { display: block; height: 64px; max-width: 90%; margin: 2px auto 4px; object-fit: contain; filter: drop-shadow(0 3px 4px rgba(0,0,0,.25)); }
@@ -5270,6 +5271,13 @@ function stkLinkOf(it) {
   STK.items.filter(x => x.id === it.id || (x.owner === it.owner && k(x.name) === k(it.name))).forEach(x => { const l = L[x.id]; if (l) ['cat', 'mx', 'pcm'].forEach(t => { g[t] = g[t].concat(l[t] || []); }); });
   return g;
 }
+// รูปสินค้ามาตรฐาน (r83) ให้ Master Item ที่ยังไม่มีรูปถ่าย: จากสินค้าที่ผูกไว้ > ชื่อใกล้เคียง
+function stkStdImg(it) {
+  if (!it) return '';
+  const g = stkLinkOf(it);
+  for (let i = 0; i < g.cat.length; i++) { const s = pimg(g.cat[i].name); if (s) return s; }
+  return pimgStd(it.name) || (it.brand ? pimgStd(it.brand + ' ' + it.name) : '');
+}
 function stkLinkHtml(it) {
   const g = stkLinkOf(it), rows = [];
   g.cat.forEach(c => rows.push(['สินค้าขายบนเครื่อง', c.name + ' · ' + money(c.price) + ' บาท' + (c.usd ? ' / $' + c.usd : '') + (c.hidden ? ' (ซ่อนอยู่)' : '')]));
@@ -5947,7 +5955,7 @@ function stkListHtml() {
       list.forEach(it => {
         const c = stkCalc(it), th = STK_TH[it.id];
         h += '<tr class="lv-' + c.lv + (it.status === 'inactive' ? ' stkin' : '') + '" data-it="' + it.id + '">' + (can ? '<td><input type="checkbox" class="sfCk" data-id="' + it.id + '"' + (STK_SEL[it.id] ? ' checked' : '') + '></td>' : '') +
-          '<td><span class="stkpic" data-pic="' + it.id + '">' + (th ? '<img src="' + th + '" alt="">' : it.photo ? '' : '<i>' + esc(stkCatCode(it.cat)) + '</i>') + '</span></td>' +
+          '<td><span class="stkpic" data-pic="' + it.id + '">' + (th ? '<img src="' + th + '" alt="">' : it.photo ? '' : stkStdImg(it) ? '<img class="std" src="' + stkStdImg(it) + '" alt="">' : '<i>' + esc(stkCatCode(it.cat)) + '</i>') + '</span></td>' +
           '<td class="wrap"><small>' + esc(it.sku || '-') + '</small></td><td class="wrap"><b>' + esc(it.name) + '</b>' + (it.status === 'inactive' ? ' <span class="stkoff">ไม่ใช้แล้ว</span>' : '') + '<br><small class="hint">' + it.kind.toUpperCase() + (it.brand ? ' · ' + esc(it.brand) : '') + (it.pack ? ' · Pack ' + esc(it.pack) : '') + '</small></td>' +
           '<td>' + esc(it.unit) + '</td><td class="r">' + c.in + '</td><td class="r">' + c.out + '</td><td class="r"><b>' + c.bal + '</b></td>' +
           '<td class="r stkact">' + (can ? '<a href="#" class="stkEd" data-id="' + it.id + '">แก้ไข</a>' : '') + (c.lv === 'r' && STK_OWN === 'IFS' ? '<a href="#" class="stkOrd" data-id="' + it.id + '">สั่งสินค้า</a>' : '') + '</td>' +
@@ -6082,7 +6090,7 @@ function stkSpecRows(it, all) {
 }
 function stkPvHtml(it) {
   const c = stkCalc(it), th = STK_TH[it.id];
-  return '<div class="stkpvpic">' + (th ? '<img src="' + th + '" alt="">' : '<span>' + (it.photo ? 'กำลังโหลดรูป...' : 'ยังไม่มีรูป') + '</span>') + '</div>' +
+  return '<div class="stkpvpic">' + (th ? '<img src="' + th + '" alt="">' : !it.photo && stkStdImg(it) ? '<img class="std" src="' + stkStdImg(it) + '" alt="">' : '<span>' + (it.photo ? 'กำลังโหลดรูป...' : 'ยังไม่มีรูป') + '</span>') + '</div>' +
     '<div class="stkpvtx"><b>' + esc(it.name) + '</b><div class="stkpvst">' + stkPill(c) + '<span>คงเหลือ <b>' + c.bal + '</b> ' + esc(it.unit || '') + '</span></div>' +
     (function () { const g = stkLinkOf(it), t = []; if (g.cat.length) t.push('ขาย ' + money(g.cat[0].price) + ' บาท'); if (g.mx.length) t.push('Sky Menu'); if (g.pcm.length) t.push('PCM ' + g.pcm[0].code); return t.length ? '<div class="hint">' + esc(t.join(' · ')) + '</div>' : ''; })() +
     '<table>' + stkSpecRows(it).map(r => '<tr><th>' + esc(r[0]) + '</th><td>' + esc(r[1]) + '</td></tr>').join('') + '</table><small class="hint">กดเพื่อเปิดรายละเอียด</small></div>';
@@ -6124,7 +6132,7 @@ async function stkItemPop(id, draw, startEdit) {
   document.addEventListener('keydown', esc1);
   b.onclick = e => { if (e.target === b && !editing) close(); };
   const fields = () => [['sku', 'SKU (รหัสสินค้า)'], ['name', 'Item name'], ['brand', 'Brand'], ['pack', 'Pack'], ['subpack', 'Subpack'], ['weight', 'Weight Per Pcs.'], ['cost', 'Cost'], ['unit', 'Stock Unit']];
-  const picHtml = () => photo ? '<img src="' + photo.thumb + '" alt="">' : delPhoto ? '<span>ยังไม่มีรูป</span>' : big ? '<img src="' + big + '" alt="">' : STK_TH[it.id] ? '<img src="' + STK_TH[it.id] + '" alt="">' : '<span>' + (it.photo ? 'กำลังโหลดรูป...' : 'ยังไม่มีรูป') + '</span>';
+  const picHtml = () => photo ? '<img src="' + photo.thumb + '" alt="">' : delPhoto ? '<span>ยังไม่มีรูป</span>' : big ? '<img src="' + big + '" alt="">' : STK_TH[it.id] ? '<img src="' + STK_TH[it.id] + '" alt="">' : !it.photo && stkStdImg(it) ? '<img class="std" src="' + stkStdImg(it) + '" alt="">' : '<span>' + (it.photo ? 'กำลังโหลดรูป...' : 'ยังไม่มีรูป') + '</span>';
   const render = () => {
     const c = stkCalc(it), F = (STK.opts && STK.opts.stkfield) || [], ex = it.extra || {};
     const tx = STK.tx.filter(t => t.item === it.id).sort((a, b2) => (b2.d + b2.time + b2.at) < (a.d + a.time + a.at) ? -1 : 1).slice(0, 12);

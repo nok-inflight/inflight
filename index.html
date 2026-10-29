@@ -331,6 +331,19 @@ function sriScript(s, src) { if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.c
   #hdRoot .hd-ft, #hdRoot .hd-ft thead, #hdRoot .hd-ft tbody, #hdRoot .hd-ft tr, #hdRoot .hd-ft td, #hdRoot .hd-ft th { background: transparent !important; color: var(--ink); box-shadow: none !important; } #hdRoot .hd-ft th { color: var(--mut); }
   #hdRoot .hd-ft tr.now td { background: rgba(255,184,77,.14) !important; } #hdRoot .hd-fk { display: inline-block; font-size: 10px; padding: 0 6px; margin-right: 4px; border: 1px solid; } #hdRoot .hd-fk.d { color: #ffb84d; } #hdRoot .hd-fk.i { color: #ff5c8a; }
   #hdRoot .hd-cr span { display: inline-block; font-size: 11px; border: 1px solid rgba(255,184,77,.3); padding: 0 6px; margin: 2px 3px 0 0; color: var(--ink); }
+  #hdRoot .hd-pg { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 26px; margin-top: 6px; }
+  #hdRoot .hd-pg button { margin: 0; padding: 0; min-width: 26px; height: 24px; background: rgba(255,184,77,.06); border: 1px solid rgba(255,184,77,.3); color: var(--mut); border-radius: 0; box-shadow: none; cursor: pointer; font-family: Rajdhani, Kanit, sans-serif; font-weight: 700; font-size: 13px; }
+  #hdRoot .hd-pg button.on { background: rgba(255,184,77,.3); color: #fff; border-color: var(--c); box-shadow: 0 0 10px rgba(255,184,77,.4); } #hdRoot .hd-pg button:disabled { opacity: .3; cursor: default; }
+  #hdRoot .hd-pg span { margin-left: 8px; font-family: Rajdhani, Kanit, sans-serif; font-size: 12px; color: var(--mut); letter-spacing: 1px; }
+  #hdRoot .hd-flip { animation: hdFlip .45s cubic-bezier(.2,.8,.2,1); } @keyframes hdFlip { from { opacity: 0; transform: translateY(8px); filter: brightness(1.8); } to { opacity: 1; transform: none; filter: none; } }
+  #hdRoot .hd-pf .hd-carw { min-height: 0; } #hdRoot .hd-car { grid-template-columns: repeat(var(--per, 6), minmax(0, 1fr)); }
+  #hdRoot .hd-fc { justify-content: center; gap: 1px; } #hdRoot .hd-fc .hd-fno { font-family: Rajdhani, Kanit, sans-serif; font-size: 24px; color: #fff; text-shadow: 0 0 12px var(--c); margin: 0; }
+  #hdRoot .hd-fc .hd-fsec { color: var(--mut); font-family: Rajdhani, Kanit, sans-serif; } #hdRoot .hd-fc .hd-famt { font-family: Rajdhani, Kanit, sans-serif; font-size: 18px; color: var(--c); margin: 2px 0 0; } #hdRoot .hd-fkr { position: absolute; right: 6px; top: 6px; }
+  #hdRoot .hd-tabb { overflow: hidden !important; }
+  #hdRoot .hd-pc3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; height: 100%; }
+  #hdRoot .hd-pc { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; padding: 8px 4px; background: linear-gradient(180deg, rgba(255,184,77,.02), rgba(255,184,77,.13)); border: 1px solid rgba(255,184,77,.32); min-width: 0; }
+  #hdRoot .hd-pc:hover { border-color: #ffd27a; box-shadow: 0 0 18px rgba(255,204,51,.35); } #hdRoot .hd-pc img { height: 74px; max-width: 100%; object-fit: contain; filter: drop-shadow(0 0 10px rgba(255,184,77,.55)); }
+  #hdRoot .hd-pc b { font-size: 12px; line-height: 1.2; margin-top: 6px; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; } #hdRoot .hd-pc small { color: var(--mut); font-size: 11.5px; } #hdRoot .hd-pc em { font-style: normal; font-family: Rajdhani, Kanit, sans-serif; font-weight: 700; color: var(--c); font-size: 15px; }
   #hdRoot .hd-cats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
   #hdRoot .hd-cats button { display: flex; align-items: center; gap: 8px; text-align: left; margin: 0; padding: 6px 8px; background: rgba(255,184,77,.05); border: 1px solid rgba(255,184,77,.22); color: var(--ink); border-radius: 0; box-shadow: none; cursor: pointer; font: inherit; font-family: Kanit, sans-serif; font-size: 12.5px; min-width: 0; }
   #hdRoot .hd-cats button:hover { background: rgba(255,184,77,.16); border-color: var(--cc); }
@@ -5403,8 +5416,8 @@ function hdBuild(D, X) {
     '<div class="hd-pn"><h3>METRICS <i>เดือนนี้</i></h3><div class="hd-kpis" id="hdKpis"></div><div class="hd-split"><div class="hd-sbar" id="hdSb"></div><div class="hd-slg" id="hdSl"></div></div></div></div>' +
     '<div class="hd-stage" id="hdStage"><div class="hd-ttl">FLEET HOLOGRAM · ฝูงบินข้อมูล<b id="hdBest"></b></div><div class="hd-tip" id="hdTip"></div><div class="hd-hint">คลิกเครื่องบินเพื่อเปิดข้อมูล · ค้นหาเที่ยวบินด้านบน · ลากเพื่อหมุน · ชี้ที่แท่งเพื่อดูยอดรายวัน</div><div id="hdLabs"></div></div>' +
     '<div class="hd-col"><div class="hd-pn"><h3>FLEET MENU <i>หัวข้อบนเครื่องบิน</i></h3><div class="hd-cats" id="hdCats"></div></div>' +
-    '<div class="hd-pn hd-tabsp"><div class="hd-tabs" id="hdTabs"><button type="button" data-t="day" class="on">รายวัน</button><button type="button" data-t="item">สินค้าขายดี</button><button type="button" data-t="flt">เที่ยวบินยอดสูง</button></div><div class="hd-tabb" id="hdTabB"></div></div></div>' +
-    '<div class="hd-bottom"><div class="hd-pn hd-pf"><h3>TOP PRODUCTS <i>สินค้าขายดี ' + Math.min(8, Z.items.length) + ' อันดับ</i></h3><div class="hd-carw"><div class="hd-car" id="hdCar"></div></div></div>' +
+    '<div class="hd-pn hd-tabsp"><div class="hd-tabs" id="hdTabs"><button type="button" data-t="item" class="on">สินค้าขายดี</button><button type="button" data-t="day">รายวัน</button><button type="button" data-t="crew">ลูกเรือ</button></div><div class="hd-tabb" id="hdTabB"></div><div class="hd-pg" id="hdTabPg"></div></div></div>' +
+    '<div class="hd-bottom"><div class="hd-pn hd-pf"><h3>FLIGHT HIGHLIGHTS <i>เที่ยวบินยอดสูง · กดเพื่อเรียกเครื่องบิน</i></h3><div class="hd-carw"><div class="hd-car" id="hdCar"></div></div><div class="hd-pg" id="hdCarPg"></div></div>' +
     '<div class="hd-pn"><h3>INSIGHTS <i>สรุปอัตโนมัติ</i></h3><div class="hd-facts" id="hdFacts"></div><div class="hd-tick"><span id="hdTick"></span></div></div></div></div>' +
     '<div class="hd-memw"><div class="hd-memc"></div></div>';
   // นาฬิกา
@@ -5439,10 +5452,12 @@ function hdBuild(D, X) {
     if (Z.crew[0]) f.push('ลูกเรือยอดสูงสุด <b>' + hdEsc(Z.crew[0].name || Z.crew[0].id) + '</b> ' + Z.crew[0].n + ' เที่ยว');
     $('hdFacts').innerHTML = f.length ? f.slice(0, 4).map(x => '<div>' + x + '</div>').join('') : '<div>ยังไม่มีข้อมูลในเดือนนี้</div>';
     $('hdTick').textContent = 'SYNC OK · ' + (Z.cur.n || 0) + ' FLIGHTS ANALYZED · ' + Z.routes.length + ' ROUTES · ' + (Z.tdN ? 'TDSR ' + Z.tdN + ' DAYS · ' : '') + (Z.impN ? 'RTI ' + Z.impN + ' RECEIPTS · ' : '') + Z.crewN + ' CREW · ' + hdMonthEn(Z.mo) + ' · ALL SYSTEMS NOMINAL ·'; }
-  // ชั้นสินค้าขายดี
-  { const L = Z.items.slice(0, 8), mx = Math.max(1, ...L.map(x => x.q));
-    $('hdCar').innerHTML = L.length ? L.map((p, i) => '<div class="hd-card" data-i="' + i + '" title="คลิกดูรายละเอียด" style="animation-delay:' + (-i * .5) + 's"><span class="hd-rk">#' + (i + 1) + '</span>' + (pimg(p.n) ? '<img src="' + pimg(p.n) + '" alt="">' : '<div class="hd-noimg"></div>') + '<b>' + hdEsc(p.n) + '</b><small>' + hdFmt(p.q) + ' ชิ้น · ' + hdFmt(p.a) + '</small><i style="width:' + (p.q / mx * 100) + '%"></i></div>').join('') : '<p class="hd-mut">ยังไม่มีรายการสินค้าในเดือนนี้</p>';
-    $('hdCar').onclick = e => { const c = e.target.closest('.hd-card'); if (c) hdProdMem(Number(c.dataset.i)); }; }
+  // แถวล่าง: การ์ดเที่ยวบินยอดสูง (แบ่งหน้า)
+  { const L = Z.flights, mx = Math.max(1, ...L.map(f => f.g));
+    hdPager('hdCar', 'hdCarPg', L, () => Math.max(3, Math.floor(($('hdCar').clientWidth + 10) / 170)), (pg, off) => pg.length ? pg.map((f, j) => { const i = off + j;
+      return '<div class="hd-card hd-fc" data-f="' + hdEsc(f.no) + '" style="animation-delay:' + (-j * .5) + 's"><span class="hd-rk">#' + (i + 1) + '</span>' + (f.k ? '<span class="hd-fk ' + (f.k === 'inter' ? 'i' : 'd') + ' hd-fkr">' + (f.k === 'inter' ? 'INTER' : 'DOM') + '</span>' : '') +
+        '<b class="hd-fno">' + hdEsc(f.no) + '</b><small class="hd-fsec">' + hdEsc(f.sector || '-') + '</small><b class="hd-famt">' + hdFmt(f.g) + ' ฿</b><small>' + f.n + ' เที่ยว · เฉลี่ย ' + hdFmt(f.avg) + '</small><i style="width:' + (f.g / mx * 100) + '%"></i></div>'; }).join('') : '<p class="hd-mut">ยังไม่มีเที่ยวบินในเดือนนี้</p>');
+    $('hdCar').onclick = e => { const c = e.target.closest('.hd-fc'); if (c) { $('hdQ').value = c.dataset.f; hdFlight(c.dataset.f); } }; }
   hdStage(); hdSide(D);
   const els = [...root.querySelectorAll('.hd-pn, .hd-stage')];
   els.forEach((p, i) => setTimeout(() => { if (HD) p.classList.add('on'); }, 120 + i * 120));
@@ -5453,18 +5468,34 @@ function hdSide(D) {
   const Z = HD.Z;
   $('hdCats').innerHTML = HD_CATS.map((c, i) => '<button type="button" data-i="' + i + '" style="--cc:' + c.c + '"><i></i><span>' + hdEsc(c.t) + '<small>' + hdEsc(hdSub(c.id)) + '</small></span></button>').join('');
   $('hdCats').onclick = e => { const b = e.target.closest('button'); if (b && HD.fleet) HD.fleet.pickCat(Number(b.dataset.i)); };
-  const dm = d => Number(d.slice(8)) + '/' + Number(d.slice(5, 7));
+  const dm = d => Number(d.slice(8)) + '/' + Number(d.slice(5, 7)), box = $('hdTabB');
+  const rowsFit = (rh, head) => Math.max(3, Math.floor((box.clientHeight - (head || 0)) / rh));
   const tabs = {
-    day: () => { const L = (D.days || []).slice().reverse(); return L.length ? '<table class="hd-ft hd-tt"><thead><tr><th>วันที่</th><th class="r">เที่ยว</th><th class="r">F&amp;B</th><th class="r">MER</th><th class="r">รวม</th></tr></thead><tbody>' +
-      L.map(d => '<tr class="hd-ck" data-d="' + hdEsc(d.date) + '"><td>' + dm(d.date) + '</td><td class="r">' + d.n + '</td><td class="r">' + hdFmt(d.fb) + '</td><td class="r">' + hdFmt(d.mer) + '</td><td class="r"><b>' + hdFmt(d.grand) + '</b></td></tr>').join('') + '</tbody></table>' : '<p class="hd-mut">ยังไม่มีใบขายในเดือนนี้</p>'; },
-    item: () => { const L = Z.items.slice(0, 20), mx = Math.max(1, ...L.map(x => x.a)); return L.length ? '<div class="hd-il">' + L.map((x, i) => '<div class="hd-ck" data-p="' + i + '"><span>' + pth(x.n) + hdEsc(x.n) + '</span><i style="width:' + Math.max(3, x.a / mx * 100) + '%"></i><em>' + hdFmt(x.q) + ' ชิ้น</em><b>' + hdK(x.a) + '</b></div>').join('') + '</div>' : '<p class="hd-mut">ยังไม่มีรายการสินค้า</p>'; },
-    flt: () => { const L = Z.flights.slice(0, 15); return L.length ? '<table class="hd-ft hd-tt"><thead><tr><th>เที่ยวบิน</th><th class="r">ครั้ง</th><th class="r">ยอดรวม</th><th class="r">เฉลี่ย</th></tr></thead><tbody>' +
-      L.map(f => '<tr class="hd-ck" data-f="' + hdEsc(f.no) + '"><td><b>' + hdEsc(f.no) + '</b><br><small class="hd-mut">' + hdEsc(f.sector || '') + '</small></td><td class="r">' + f.n + '</td><td class="r">' + hdFmt(f.g) + '</td><td class="r">' + hdFmt(f.avg) + '</td></tr>').join('') + '</tbody></table>' : '<p class="hd-mut">-</p>'; }
+    item: () => hdPager('hdTabB', 'hdTabPg', Z.items, () => 3, (pg, off) => pg.length ? '<div class="hd-pc3">' + pg.map((x, j) => '<div class="hd-ck hd-pc" data-p="' + (off + j) + '"><span class="hd-rk">#' + (off + j + 1) + '</span>' + (pimg(x.n) ? '<img src="' + pimg(x.n) + '" alt="">' : '<div class="hd-noimg"></div>') + '<b>' + hdEsc(x.n) + '</b><small>' + hdFmt(x.q) + ' ชิ้น</small><em>' + hdFmt(x.a) + ' ฿</em></div>').join('') + '</div>' : '<p class="hd-mut">ยังไม่มีรายการสินค้า</p>'),
+    day: () => { const L = (D.days || []).slice().reverse(); hdPager('hdTabB', 'hdTabPg', L, () => rowsFit(31, 30), pg => pg.length ? '<table class="hd-ft hd-tt"><thead><tr><th>วันที่</th><th class="r">เที่ยว</th><th class="r">F&amp;B</th><th class="r">MER</th><th class="r">รวม</th></tr></thead><tbody>' +
+      pg.map(d => '<tr class="hd-ck" data-d="' + hdEsc(d.date) + '"><td>' + dm(d.date) + '</td><td class="r">' + d.n + '</td><td class="r">' + hdFmt(d.fb) + '</td><td class="r">' + hdFmt(d.mer) + '</td><td class="r"><b>' + hdFmt(d.grand) + '</b></td></tr>').join('') + '</tbody></table>' : '<p class="hd-mut">ยังไม่มีใบขายในเดือนนี้</p>'); },
+    crew: () => { const mx = Math.max(1, ...Z.crew.map(c => c.g)); hdPager('hdTabB', 'hdTabPg', Z.crew, () => rowsFit(44), (pg, off) => pg.length ? '<div class="hd-il">' + pg.map((c, j) => '<div><span><b style="color:var(--gold)">' + (off + j + 1) + '.</b> ' + hdEsc(c.name || c.id) + ' <small class="hd-mut">' + c.n + ' เที่ยว</small></span><i style="width:' + Math.max(3, c.g / mx * 100) + '%"></i><em></em><b>' + hdK(c.g) + '</b></div>').join('') + '</div>' : '<p class="hd-mut">ยังไม่มีข้อมูลลูกเรือ</p>'); }
   };
-  const show = t => { each('#hdTabs button', b => b.classList.toggle('on', b.dataset.t === t)); $('hdTabB').innerHTML = tabs[t](); $('hdTabB').scrollTop = 0; };
+  const show = t => { each('#hdTabs button', b => b.classList.toggle('on', b.dataset.t === t)); tabs[t](); };
   $('hdTabs').onclick = e => { const b = e.target.closest('button'); if (b) show(b.dataset.t); };
-  $('hdTabB').onclick = e => { const r = e.target.closest('.hd-ck'); if (!r) return; if (r.dataset.d) hdDayMem(r.dataset.d, D); else if (r.dataset.p) hdProdMem(Number(r.dataset.p)); else if (r.dataset.f) { $('hdQ').value = r.dataset.f; hdFlight(r.dataset.f); } };
-  show('day');
+  box.onclick = e => { const r = e.target.closest('.hd-ck'); if (!r) return; if (r.dataset.d) hdDayMem(r.dataset.d, D); else if (r.dataset.p) hdProdMem(Number(r.dataset.p)); };
+  show('item');
+}
+// แบ่งหน้าแทนการเลื่อน: ‹ 1 2 3 › · จำนวนต่อหน้าคำนวณจากขนาดกล่อง (เปลี่ยนขนาดจอแล้วคำนวณใหม่)
+function hdPager(boxId, pgId, list, perFn, render) {
+  const box = $(boxId), pgEl = $(pgId); if (!box || !pgEl) return;
+  const st = box.__pg = { list: list, perFn: perFn, render: render, page: 0 };
+  const draw = () => {
+    if (box.__pg !== st || !box.isConnected) return;
+    const per = Math.max(1, perFn()), n = Math.max(1, Math.ceil(list.length / per)); st.page = Math.min(st.page, n - 1);
+    const off = st.page * per;
+    box.style.setProperty('--per', per); box.innerHTML = render(list.slice(off, off + per), off);
+    pgEl.innerHTML = n > 1 ? '<button type="button" data-g="-1"' + (st.page ? '' : ' disabled') + '>‹</button>' + Array.from({ length: n }, (_, i) => '<button type="button" data-p="' + i + '" class="' + (i === st.page ? 'on' : '') + '">' + (i + 1) + '</button>').join('') + '<button type="button" data-g="1"' + (st.page < n - 1 ? '' : ' disabled') + '>›</button><span>' + (st.page + 1) + ' / ' + n + '</span>' : '';
+    box.classList.remove('hd-flip'); void box.offsetWidth; box.classList.add('hd-flip');
+  };
+  pgEl.onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return; st.page = b.dataset.p !== undefined ? Number(b.dataset.p) : st.page + Number(b.dataset.g); draw(); };
+  if (!box.__rs) { box.__rs = 1; const rs = () => { if (box.__pg) { const s2 = box.__pg; s2.page = 0; hdPager(boxId, pgId, s2.list, s2.perFn, s2.render); } }; let tm = 0; const on = () => { clearTimeout(tm); tm = setTimeout(rs, 200); }; addEventListener('resize', on); if (HD) HD.off.push(() => removeEventListener('resize', on)); }
+  draw();
 }
 function hdDayMem(date, D) {
   const d = (D.days || []).filter(x => x.date === date)[0]; if (!d) return;

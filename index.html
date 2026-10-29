@@ -331,6 +331,20 @@ function sriScript(s, src) { if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.c
   #hdRoot .hd-ft, #hdRoot .hd-ft thead, #hdRoot .hd-ft tbody, #hdRoot .hd-ft tr, #hdRoot .hd-ft td, #hdRoot .hd-ft th { background: transparent !important; color: var(--ink); box-shadow: none !important; } #hdRoot .hd-ft th { color: var(--mut); }
   #hdRoot .hd-ft tr.now td { background: rgba(255,184,77,.14) !important; } #hdRoot .hd-fk { display: inline-block; font-size: 10px; padding: 0 6px; margin-right: 4px; border: 1px solid; } #hdRoot .hd-fk.d { color: #ffb84d; } #hdRoot .hd-fk.i { color: #ff5c8a; }
   #hdRoot .hd-cr span { display: inline-block; font-size: 11px; border: 1px solid rgba(255,184,77,.3); padding: 0 6px; margin: 2px 3px 0 0; color: var(--ink); }
+  #hdRoot .hd-cats { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; }
+  #hdRoot .hd-cats button { display: flex; align-items: center; gap: 8px; text-align: left; margin: 0; padding: 6px 8px; background: rgba(255,184,77,.05); border: 1px solid rgba(255,184,77,.22); color: var(--ink); border-radius: 0; box-shadow: none; cursor: pointer; font: inherit; font-family: Kanit, sans-serif; font-size: 12.5px; min-width: 0; }
+  #hdRoot .hd-cats button:hover { background: rgba(255,184,77,.16); border-color: var(--cc); }
+  #hdRoot .hd-cats i { width: 9px; height: 9px; border-radius: 50%; flex: none; background: var(--cc); box-shadow: 0 0 8px var(--cc); } #hdRoot .hd-cats span { min-width: 0; overflow: hidden; } #hdRoot .hd-cats small { display: block; font-family: Rajdhani, Kanit, sans-serif; font-weight: 600; color: var(--c); font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  #hdRoot .hd-tabsp { flex: 1; display: flex; flex-direction: column; }
+  #hdRoot .hd-tabs { display: flex; gap: 4px; margin-bottom: 8px; } #hdRoot .hd-tabs button { flex: 1; margin: 0; padding: 6px 4px; background: rgba(255,184,77,.06); border: 1px solid rgba(255,184,77,.25); color: var(--mut); border-radius: 0; box-shadow: none; font: inherit; font-family: Kanit, sans-serif; font-size: 12.5px; cursor: pointer; }
+  #hdRoot .hd-tabs button.on { background: rgba(255,184,77,.22); color: #fff; border-color: var(--c); }
+  #hdRoot .hd-tabb { flex: 1; min-height: 0; overflow: auto; } #hdRoot .hd-tt { margin-top: 0; font-size: 12.5px; } #hdRoot .hd-tt td { padding: 5px 6px; } #hdRoot .hd-tt .r { font-size: 14px; }
+  #hdRoot .hd-ck { cursor: pointer; } #hdRoot tr.hd-ck:hover td { background: rgba(255,184,77,.12) !important; }
+  #hdRoot .hd-il > div { display: grid; grid-template-columns: minmax(0, 1fr) 62px 44px; grid-template-areas: 's e b' 'i i i'; gap: 2px 6px; align-items: center; padding: 5px 4px; font-size: 12.5px; }
+  #hdRoot .hd-il > div:hover { background: rgba(255,184,77,.1); } #hdRoot .hd-il span { grid-area: s; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; } #hdRoot .hd-il img.pth { width: 20px; height: 20px; }
+  #hdRoot .hd-il i { grid-area: i; display: block; height: 4px; background: var(--c); box-shadow: 0 0 8px var(--c); } #hdRoot .hd-il em { grid-area: e; font-style: normal; color: var(--mut); text-align: right; font-size: 11.5px; } #hdRoot .hd-il b { grid-area: b; text-align: right; font-family: Rajdhani, Kanit, sans-serif; font-size: 14px; }
+  #hdRoot .hd-card { cursor: pointer; transition: border-color .2s, box-shadow .2s; } #hdRoot .hd-card:hover { border-color: #ffd27a; box-shadow: 0 0 22px rgba(255,204,51,.4); }
+  #hdRoot .hd-pdh { display: flex; gap: 18px; align-items: center; margin-top: 6px; } #hdRoot .hd-pdh img { height: 120px; max-width: 120px; object-fit: contain; filter: drop-shadow(0 0 16px rgba(255,184,77,.55)); }
   #hdRoot .hd-h5 { margin: 14px 0 4px; font-family: Rajdhani, Kanit, sans-serif; letter-spacing: 3px; font-size: 12px; color: var(--c); }
   @media (max-width: 1250px) { #hdRoot .hd-wrap { grid-template-columns: 250px minmax(0, 1fr) 280px; } #hdRoot .hd-bottom { grid-template-columns: minmax(0, 1fr) 280px; } #hdRoot .hd-mo { display: none; } }
   @media (prefers-reduced-motion: reduce) { #hdRoot *, #hdRoot *::before, #hdRoot *::after { animation: none !important; } }
@@ -5388,7 +5402,8 @@ function hdBuild(D, X) {
     '<div class="hd-ringtx"><small>TOTAL ฿</small><b id="hdTot">0</b><em class="' + (mom === null || mom >= 0 ? '' : 'dn') + '">' + (mom === null ? 'ไม่มีข้อมูลเดือนก่อน' : (mom >= 0 ? '▲ ' : '▼ ') + Math.abs(mom).toFixed(1) + '% จากเดือนก่อน') + '</em></div></div><div class="hd-leg" id="hdLeg"></div></div>' +
     '<div class="hd-pn"><h3>METRICS <i>เดือนนี้</i></h3><div class="hd-kpis" id="hdKpis"></div><div class="hd-split"><div class="hd-sbar" id="hdSb"></div><div class="hd-slg" id="hdSl"></div></div></div></div>' +
     '<div class="hd-stage" id="hdStage"><div class="hd-ttl">FLEET HOLOGRAM · ฝูงบินข้อมูล<b id="hdBest"></b></div><div class="hd-tip" id="hdTip"></div><div class="hd-hint">คลิกเครื่องบินเพื่อเปิดข้อมูล · ค้นหาเที่ยวบินด้านบน · ลากเพื่อหมุน · ชี้ที่แท่งเพื่อดูยอดรายวัน</div><div id="hdLabs"></div></div>' +
-    '<div class="hd-col"><div class="hd-pn hd-rad"><h3>FLIGHT RADAR <i>TOP 8</i></h3><canvas id="hdRadar"></canvas></div><div class="hd-pn hd-rad"><h3>ROUTE NETWORK <i>DMK HUB</i></h3><canvas id="hdRoutes"></canvas></div></div>' +
+    '<div class="hd-col"><div class="hd-pn"><h3>FLEET MENU <i>หัวข้อบนเครื่องบิน</i></h3><div class="hd-cats" id="hdCats"></div></div>' +
+    '<div class="hd-pn hd-tabsp"><div class="hd-tabs" id="hdTabs"><button type="button" data-t="day" class="on">รายวัน</button><button type="button" data-t="item">สินค้าขายดี</button><button type="button" data-t="flt">เที่ยวบินยอดสูง</button></div><div class="hd-tabb" id="hdTabB"></div></div></div>' +
     '<div class="hd-bottom"><div class="hd-pn hd-pf"><h3>TOP PRODUCTS <i>สินค้าขายดี ' + Math.min(8, Z.items.length) + ' อันดับ</i></h3><div class="hd-carw"><div class="hd-car" id="hdCar"></div></div></div>' +
     '<div class="hd-pn"><h3>INSIGHTS <i>สรุปอัตโนมัติ</i></h3><div class="hd-facts" id="hdFacts"></div><div class="hd-tick"><span id="hdTick"></span></div></div></div></div>' +
     '<div class="hd-memw"><div class="hd-memc"></div></div>';
@@ -5426,11 +5441,53 @@ function hdBuild(D, X) {
     $('hdTick').textContent = 'SYNC OK · ' + (Z.cur.n || 0) + ' FLIGHTS ANALYZED · ' + Z.routes.length + ' ROUTES · ' + (Z.tdN ? 'TDSR ' + Z.tdN + ' DAYS · ' : '') + (Z.impN ? 'RTI ' + Z.impN + ' RECEIPTS · ' : '') + Z.crewN + ' CREW · ' + hdMonthEn(Z.mo) + ' · ALL SYSTEMS NOMINAL ·'; }
   // ชั้นสินค้าขายดี
   { const L = Z.items.slice(0, 8), mx = Math.max(1, ...L.map(x => x.q));
-    $('hdCar').innerHTML = L.length ? L.map((p, i) => '<div class="hd-card" style="animation-delay:' + (-i * .5) + 's"><span class="hd-rk">#' + (i + 1) + '</span>' + (pimg(p.n) ? '<img src="' + pimg(p.n) + '" alt="">' : '<div class="hd-noimg"></div>') + '<b>' + hdEsc(p.n) + '</b><small>' + hdFmt(p.q) + ' ชิ้น · ' + hdFmt(p.a) + '</small><i style="width:' + (p.q / mx * 100) + '%"></i></div>').join('') : '<p class="hd-mut">ยังไม่มีรายการสินค้าในเดือนนี้</p>'; }
-  hdRadar(); hdRoutes(); hdStage();
+    $('hdCar').innerHTML = L.length ? L.map((p, i) => '<div class="hd-card" data-i="' + i + '" title="คลิกดูรายละเอียด" style="animation-delay:' + (-i * .5) + 's"><span class="hd-rk">#' + (i + 1) + '</span>' + (pimg(p.n) ? '<img src="' + pimg(p.n) + '" alt="">' : '<div class="hd-noimg"></div>') + '<b>' + hdEsc(p.n) + '</b><small>' + hdFmt(p.q) + ' ชิ้น · ' + hdFmt(p.a) + '</small><i style="width:' + (p.q / mx * 100) + '%"></i></div>').join('') : '<p class="hd-mut">ยังไม่มีรายการสินค้าในเดือนนี้</p>';
+    $('hdCar').onclick = e => { const c = e.target.closest('.hd-card'); if (c) hdProdMem(Number(c.dataset.i)); }; }
+  hdStage(); hdSide(D);
   const els = [...root.querySelectorAll('.hd-pn, .hd-stage')];
   els.forEach((p, i) => setTimeout(() => { if (HD) p.classList.add('on'); }, 120 + i * 120));
   setTimeout(() => { if (HD) root.classList.remove('hdboot'); }, 200 + els.length * 120 + 1000);
+}
+// แผงขวา: หัวข้อเครื่องบิน (กดแล้วเครื่องลำนั้นบินเข้ามา) + แท็บแบบแดชบอร์ดปกติ
+function hdSide(D) {
+  const Z = HD.Z;
+  $('hdCats').innerHTML = HD_CATS.map((c, i) => '<button type="button" data-i="' + i + '" style="--cc:' + c.c + '"><i></i><span>' + hdEsc(c.t) + '<small>' + hdEsc(hdSub(c.id)) + '</small></span></button>').join('');
+  $('hdCats').onclick = e => { const b = e.target.closest('button'); if (b && HD.fleet) HD.fleet.pickCat(Number(b.dataset.i)); };
+  const dm = d => Number(d.slice(8)) + '/' + Number(d.slice(5, 7));
+  const tabs = {
+    day: () => { const L = (D.days || []).slice().reverse(); return L.length ? '<table class="hd-ft hd-tt"><thead><tr><th>วันที่</th><th class="r">เที่ยว</th><th class="r">F&amp;B</th><th class="r">MER</th><th class="r">รวม</th></tr></thead><tbody>' +
+      L.map(d => '<tr class="hd-ck" data-d="' + hdEsc(d.date) + '"><td>' + dm(d.date) + '</td><td class="r">' + d.n + '</td><td class="r">' + hdFmt(d.fb) + '</td><td class="r">' + hdFmt(d.mer) + '</td><td class="r"><b>' + hdFmt(d.grand) + '</b></td></tr>').join('') + '</tbody></table>' : '<p class="hd-mut">ยังไม่มีใบขายในเดือนนี้</p>'; },
+    item: () => { const L = Z.items.slice(0, 20), mx = Math.max(1, ...L.map(x => x.a)); return L.length ? '<div class="hd-il">' + L.map((x, i) => '<div class="hd-ck" data-p="' + i + '"><span>' + pth(x.n) + hdEsc(x.n) + '</span><i style="width:' + Math.max(3, x.a / mx * 100) + '%"></i><em>' + hdFmt(x.q) + ' ชิ้น</em><b>' + hdK(x.a) + '</b></div>').join('') + '</div>' : '<p class="hd-mut">ยังไม่มีรายการสินค้า</p>'; },
+    flt: () => { const L = Z.flights.slice(0, 15); return L.length ? '<table class="hd-ft hd-tt"><thead><tr><th>เที่ยวบิน</th><th class="r">ครั้ง</th><th class="r">ยอดรวม</th><th class="r">เฉลี่ย</th></tr></thead><tbody>' +
+      L.map(f => '<tr class="hd-ck" data-f="' + hdEsc(f.no) + '"><td><b>' + hdEsc(f.no) + '</b><br><small class="hd-mut">' + hdEsc(f.sector || '') + '</small></td><td class="r">' + f.n + '</td><td class="r">' + hdFmt(f.g) + '</td><td class="r">' + hdFmt(f.avg) + '</td></tr>').join('') + '</tbody></table>' : '<p class="hd-mut">-</p>'; }
+  };
+  const show = t => { each('#hdTabs button', b => b.classList.toggle('on', b.dataset.t === t)); $('hdTabB').innerHTML = tabs[t](); $('hdTabB').scrollTop = 0; };
+  $('hdTabs').onclick = e => { const b = e.target.closest('button'); if (b) show(b.dataset.t); };
+  $('hdTabB').onclick = e => { const r = e.target.closest('.hd-ck'); if (!r) return; if (r.dataset.d) hdDayMem(r.dataset.d, D); else if (r.dataset.p) hdProdMem(Number(r.dataset.p)); else if (r.dataset.f) { $('hdQ').value = r.dataset.f; hdFlight(r.dataset.f); } };
+  show('day');
+}
+function hdDayMem(date, D) {
+  const d = (D.days || []).filter(x => x.date === date)[0]; if (!d) return;
+  const Z = HD.Z, avg = Z.cur.n ? Z.cur.grand / Math.max(1, Z.days.filter(x => x.n).length) : 0;
+  hdMemOpen({ c: '#ffcc33', t: 'DAY' }, '<div class="hd-k">HOLOGRAM · DAILY</div><h2>' + Number(date.slice(8)) + ' ' + hdMonthTh(date.slice(0, 7)) + (Z.best && Z.best.d === Number(date.slice(8)) ? ' · วันที่ขายดีที่สุด' : '') + '</h2>' +
+    '<div class="hd-big">' + hdFmt(d.grand) + '<small>บาท · ' + d.n + ' เที่ยว</small></div><div class="' + (d.grand >= avg ? 'hd-up' : 'hd-dn') + '">' + (avg ? (d.grand >= avg ? '▲ ' : '▼ ') + Math.abs((d.grand - avg) / avg * 100).toFixed(1) + '% เทียบค่าเฉลี่ยรายวันของเดือน' : '') + '</div>' +
+    '<div class="hd-row hd-r3"><div class="hd-mt"><small>F&amp;B</small><b>' + hdFmt(d.fb) + '</b></div><div class="hd-mt"><small>Merchandise</small><b>' + hdFmt(d.mer) + '</b></div><div class="hd-mt"><small>Hot Meal</small><b>' + hdFmt(d.hot) + '</b></div></div>' +
+    '<div class="hd-row hd-r2"><div class="hd-mt"><small>เฉลี่ยต่อเที่ยว</small><b>' + hdFmt(d.n ? d.grand / d.n : 0) + ' ฿</b></div><div class="hd-mt"><small>สัดส่วนของทั้งเดือน</small><b>' + (Z.cur.grand ? (d.grand / Z.cur.grand * 100).toFixed(1) : 0) + '%</b></div></div>');
+}
+// popup สินค้า (กดการ์ดด้านล่าง / แท็บสินค้าขายดี)
+function hdProdMem(i) {
+  const Z = HD.Z, x = Z.items[i]; if (!x) return;
+  const tq = Z.units || 1, ta = Z.items.reduce((t, y) => t + y.a, 0) || 1, cat = (SALECAT || []).filter(y => y.name === x.n)[0];
+  const same = Z.items.filter(y => y.mer === x.mer), rk = same.indexOf(x) + 1, top = Z.items[0], src = pimg(x.n);
+  const rows = Z.items.slice(0, 8), mx = Math.max(1, ...rows.map(y => y.q));
+  hdMemOpen({ c: '#f7e05a', t: x.n }, '<div class="hd-k">HOLOGRAM · PRODUCT #' + (i + 1) + '</div>' +
+    '<div class="hd-pdh">' + (src ? '<img src="' + src + '" alt="">' : '') + '<div><h2>' + hdEsc(x.n) + '</h2><div class="hd-mut">' + hdEsc(cat ? cat.cat : (x.mer ? 'Merchandise' : 'F&B')) + (cat ? ' · ราคา ' + hdFmt(cat.price) + ' บาท' : '') + '</div>' +
+    '<div class="hd-big">' + hdFmt(x.q) + '<small>ชิ้น · ' + hdFmt(x.a) + ' บาท</small></div></div></div>' +
+    '<div class="hd-row hd-r3"><div class="hd-mt"><small>อันดับรวม</small><b>#' + (i + 1) + '</b><small>อันดับ ' + rk + ' ในหมวด ' + (x.mer ? 'Merchandise' : 'F&B') + '</small></div><div class="hd-mt"><small>สัดส่วนจำนวนชิ้น</small><b>' + (x.q / tq * 100).toFixed(1) + '%</b></div><div class="hd-mt"><small>สัดส่วนยอดเงิน</small><b>' + (x.a / ta * 100).toFixed(1) + '%</b></div></div>' +
+    '<div class="hd-row hd-r2"><div class="hd-mt"><small>ราคาเฉลี่ยต่อชิ้น</small><b>' + hdFmt(x.q ? x.a / x.q : 0) + ' ฿</b></div><div class="hd-mt"><small>เฉลี่ยต่อเที่ยวบิน</small><b>' + (Z.cur.n ? (x.q / Z.cur.n).toFixed(1) : '0') + ' ชิ้น</b></div></div>' +
+    (top && top !== x ? '<p class="hd-mut" style="margin-top:10px">ห่างจากอันดับ 1 (' + hdEsc(top.n) + ') ' + hdFmt(top.q - x.q) + ' ชิ้น</p>' : '') +
+    '<div class="hd-h5">เทียบกับสินค้าขายดีอันดับต้นๆ (จำนวนชิ้น)</div>' + hdBars(rows.map(y => [(y === x ? '<b style="color:#fff">' : '') + pth(y.n) + hdEsc(y.n) + (y === x ? '</b>' : ''), '', hdFmt(y.q) + ' ชิ้น', y.q / mx * 100]), '#f7e05a') +
+    (Z.itemSrc === 'tdsr' ? '<p class="hd-mut">ข้อมูลจากไฟล์ Total Daily Sales Report ที่นำเข้า ' + Z.tdN + ' วัน (วันอื่นใช้รายการที่ลูกเรือคีย์)</p>' : ''));
 }
 function hdCanvasLoop(id, draw) {
   const cv = $(id), x = cv.getContext('2d'), me = HD;
@@ -5540,6 +5597,7 @@ function hdStage() {
   const flyIn = (P, from) => { P.mode = 'in'; P.t0 = performance.now(); P.from = from.clone(); focusP = P; };
   HD.fleet = {
     release() { if (!focusP) return; const P = focusP; focusP = null; regLab.style.opacity = 0; if (P.temp) { P.mode = 'out'; P.t0 = performance.now(); P.from = P.g.position.clone(); } else wanderInit(P, P.g.position); },
+    pickCat(i) { const P = planes.filter(x => x.o === HD_CATS[i] && !x.temp)[0]; if (!P) return; if (focusP === P) return; if (P.mode !== 'wander') wanderInit(P, P.g.position); HD.fleet.pick(P); },
     pick(P) { tip.style.display = 'none'; if (focusP) HD.fleet.release(); flyIn(P, P.g.position); regLab.innerHTML = hdEsc(P.o.t) + '<small>' + hdEsc(P.reg) + ' · ' + hdEsc(hdSub(P.o.id)) + '</small>'; hdMemOpen(P.o); },
     search(no, row) {
       tip.style.display = 'none'; if (focusP) HD.fleet.release();

@@ -334,6 +334,8 @@ function sriScript(s, src) { if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.c
   #hdRoot .hd-pg { display: flex; align-items: center; justify-content: center; gap: 4px; min-height: 26px; margin-top: 6px; }
   #hdRoot .hd-pg button { margin: 0; padding: 0; min-width: 26px; height: 24px; background: rgba(255,184,77,.06); border: 1px solid rgba(255,184,77,.3); color: var(--mut); border-radius: 0; box-shadow: none; cursor: pointer; font-family: Rajdhani, Kanit, sans-serif; font-weight: 700; font-size: 13px; }
   #hdRoot .hd-pg button.on { background: rgba(255,184,77,.3); color: #fff; border-color: var(--c); box-shadow: 0 0 10px rgba(255,184,77,.4); } #hdRoot .hd-pg button:disabled { opacity: .3; cursor: default; }
+  #hdRoot .hd-pg b { min-width: 64px; text-align: center; font-family: Rajdhani, Kanit, sans-serif; font-size: 15px; color: #fff; } #hdRoot .hd-pg b small { color: var(--mut); font-size: 12px; }
+  #hdRoot .hd-scan { display: flex; align-items: center; gap: 12px; margin: 22px 0; color: var(--c); font-family: Kanit, sans-serif; } #hdRoot .hd-scan i { width: 34px; height: 34px; border-radius: 50%; border: 3px solid rgba(255,184,77,.2); border-top-color: var(--c); animation: hdSpin .8s linear infinite; }
   #hdRoot .hd-pg span { margin-left: 8px; font-family: Rajdhani, Kanit, sans-serif; font-size: 12px; color: var(--mut); letter-spacing: 1px; }
   #hdRoot .hd-flip { animation: hdFlip .45s cubic-bezier(.2,.8,.2,1); } @keyframes hdFlip { from { opacity: 0; transform: translateY(8px); filter: brightness(1.8); } to { opacity: 1; transform: none; filter: none; } }
   #hdRoot .hd-pf .hd-carw { min-height: 0; } #hdRoot .hd-car { grid-template-columns: repeat(var(--per, 6), minmax(0, 1fr)); }
@@ -5391,19 +5393,31 @@ function hdFltHtml(R, pick) {
     '<div class="hd-h5">สินค้าขายดีของเที่ยวบินนี้</div>' + (top.length ? hdBars(top.map(x => [pth(x.n) + hdEsc(x.n), hdFmt(x.q) + ' ชิ้น', hdFmt(x.a) + ' ฿', x.q / tq * 100]), '#ffb84d') : '<p class="hd-mut">ยังไม่มีรายการสินค้า (ลูกเรือยังไม่ได้กดรายการ หรือเป็นใบเสร็จที่นำเข้า)</p>') +
     '<div class="hd-h5">ลูกเรือที่บินเที่ยวนี้</div><div class="hd-cr">' + (crew.length ? crew.map(c => '<span>' + hdEsc(c.name || c.id) + ' · ' + c.n + ' เที่ยว</span>').join('') : '-') + '</div>';
 }
+// ข้อมูลเที่ยวบิน: จำไว้ในเครื่อง (เดือน|เที่ยวบิน) · ดึงล่วงหน้าให้เที่ยวบินยอดสูง → กดแล้วขึ้นทันที
+function hdFltGet(no) {
+  const k = HD.month + '|' + no, C = HD.fc = HD.fc || {};
+  if (!C[k]) C[k] = run('ioFlightSum', HD.month, no).catch(e => { delete C[k]; throw e; });
+  return C[k];
+}
+async function hdPrefetch() {
+  const me = HD; if (!me) return;
+  for (const f of (me.Z.flights || []).slice(0, 8)) { if (HD !== me) return; try { await hdFltGet(f.no); } catch (e) { return; } await new Promise(ok => setTimeout(ok, 250)); }
+}
 async function hdFlight(q) {
   if (!HD || !HD.fleet) return;
   q = String(q || '').toUpperCase().trim(); if (!q) return;
   const m = q.match(/(?:DD)?\s*(\d{2,4})(?:\D+(\d{1,2}))?/); if (!m) { toast('พิมพ์เลขเที่ยวบิน เช่น DD120 หรือ DD120 28'); return; }
-  const no = 'DD' + m[1], day = m[2] ? Number(m[2]) : 0;
-  let R; try { R = await run('ioFlightSum', HD.month, no); } catch (e) { toast(/ioFlightSum/.test(e.message) ? 'ต้องอัปเดต Apps Script ก่อน' : e.message); return; }
-  if (!HD) return;
-  if (!R.rows.length) { toast('ไม่พบเที่ยวบิน ' + no + ' ใน ' + hdMonthTh(HD.month)); return; }
+  const no = 'DD' + m[1], day = m[2] ? Number(m[2]) : 0, me = HD, tk = me.ftk = (me.ftk || 0) + 1;
+  hdMemClose();
+  // แสดงแผงทันที (ระหว่างรอข้อมูล) แล้วเติมข้อมูลเมื่อได้มา
+  hdMemOpen({ c: '#ffd27a', t: no }, '<div class="hd-k">FLIGHT SCAN · ' + hdEsc(no) + '</div><h2>' + hdEsc(no) + '</h2><div class="hd-scan"><i></i><span>กำลังสแกนข้อมูลเที่ยวบิน...</span></div>');
+  let R; try { R = await hdFltGet(no); } catch (e) { if (HD === me && me.ftk === tk) { hdMemClose(); toast(/ioFlightSum/.test(e.message) ? 'ต้องอัปเดต Apps Script ก่อน' : e.message); } return; }
+  if (HD !== me || me.ftk !== tk) return;
+  if (!R.rows.length) { hdMemClose(); toast('ไม่พบเที่ยวบิน ' + no + ' ใน ' + hdMonthTh(me.month)); return; }
   const byDate = R.rows.slice().sort((a, b) => a.date < b.date ? 1 : -1);
   const pick = (day && byDate.filter(r => Number(r.date.slice(8)) === day)[0]) || byDate.filter(r => r.reg)[0] || byDate[0];
-  hdMemClose();
-  const P = HD.fleet.search(no, pick);
-  P.onArrive = () => hdMemOpen({ c: '#ffd27a', t: no }, hdFltHtml(R, pick));
+  HD.fleet.search(no, pick);
+  hdMemOpen({ c: '#ffd27a', t: no }, hdFltHtml(R, pick));
 }
 function hdBuild(D, X) {
   const root = HD.root, Z = HD.Z = hdData(D, X), g = Z.cur.grand || 0, mom = Z.pre.grand ? (g - Z.pre.grand) / Z.pre.grand * 100 : null;
@@ -5458,7 +5472,7 @@ function hdBuild(D, X) {
       return '<div class="hd-card hd-fc" data-f="' + hdEsc(f.no) + '" style="animation-delay:' + (-j * .5) + 's"><span class="hd-rk">#' + (i + 1) + '</span>' + (f.k ? '<span class="hd-fk ' + (f.k === 'inter' ? 'i' : 'd') + ' hd-fkr">' + (f.k === 'inter' ? 'INTER' : 'DOM') + '</span>' : '') +
         '<b class="hd-fno">' + hdEsc(f.no) + '</b><small class="hd-fsec">' + hdEsc(f.sector || '-') + '</small><b class="hd-famt">' + hdFmt(f.g) + ' ฿</b><small>' + f.n + ' เที่ยว · เฉลี่ย ' + hdFmt(f.avg) + '</small><i style="width:' + (f.g / mx * 100) + '%"></i></div>'; }).join('') : '<p class="hd-mut">ยังไม่มีเที่ยวบินในเดือนนี้</p>');
     $('hdCar').onclick = e => { const c = e.target.closest('.hd-fc'); if (c) { $('hdQ').value = c.dataset.f; hdFlight(c.dataset.f); } }; }
-  hdStage(); hdSide(D);
+  hdStage(); hdSide(D); setTimeout(hdPrefetch, 1500);
   const els = [...root.querySelectorAll('.hd-pn, .hd-stage')];
   els.forEach((p, i) => setTimeout(() => { if (HD) p.classList.add('on'); }, 120 + i * 120));
   setTimeout(() => { if (HD) root.classList.remove('hdboot'); }, 200 + els.length * 120 + 1000);
@@ -5490,7 +5504,9 @@ function hdPager(boxId, pgId, list, perFn, render) {
     const per = Math.max(1, perFn()), n = Math.max(1, Math.ceil(list.length / per)); st.page = Math.min(st.page, n - 1);
     const off = st.page * per;
     box.style.setProperty('--per', per); box.innerHTML = render(list.slice(off, off + per), off);
-    pgEl.innerHTML = n > 1 ? '<button type="button" data-g="-1"' + (st.page ? '' : ' disabled') + '>‹</button>' + Array.from({ length: n }, (_, i) => '<button type="button" data-p="' + i + '" class="' + (i === st.page ? 'on' : '') + '">' + (i + 1) + '</button>').join('') + '<button type="button" data-g="1"' + (st.page < n - 1 ? '' : ' disabled') + '>›</button><span>' + (st.page + 1) + ' / ' + n + '</span>' : '';
+    // แบบย่อ: « ‹ หน้า x / n › » (ไม่แสดงเลขทุกหน้า)
+    const fst = st.page > 0, lst = st.page < n - 1;
+    pgEl.innerHTML = n > 1 ? '<button type="button" data-p="0" title="หน้าแรก"' + (fst ? '' : ' disabled') + '>«</button><button type="button" data-g="-1" title="ก่อนหน้า"' + (fst ? '' : ' disabled') + '>‹</button><b>' + (st.page + 1) + ' <small>/ ' + n + '</small></b><button type="button" data-g="1" title="ถัดไป"' + (lst ? '' : ' disabled') + '>›</button><button type="button" data-p="' + (n - 1) + '" title="หน้าสุดท้าย"' + (lst ? '' : ' disabled') + '>»</button>' : '';
     box.classList.remove('hd-flip'); void box.offsetWidth; box.classList.add('hd-flip');
   };
   pgEl.onclick = e => { const b = e.target.closest('button'); if (!b || b.disabled) return; st.page = b.dataset.p !== undefined ? Number(b.dataset.p) : st.page + Number(b.dataset.g); draw(); };
@@ -5631,10 +5647,10 @@ function hdStage() {
     pickCat(i) { const P = planes.filter(x => x.o === HD_CATS[i] && !x.temp)[0]; if (!P) return; if (focusP === P) return; if (P.mode !== 'wander') wanderInit(P, P.g.position); HD.fleet.pick(P); },
     pick(P) { tip.style.display = 'none'; if (focusP) HD.fleet.release(); flyIn(P, P.g.position); regLab.innerHTML = hdEsc(P.o.t) + '<small>' + hdEsc(P.reg) + ' · ' + hdEsc(hdSub(P.o.id)) + '</small>'; hdMemOpen(P.o); },
     search(no, row) {
-      tip.style.display = 'none'; if (focusP) HD.fleet.release();
+      tip.style.display = 'none'; if (focusP) { const F = focusP; focusP = null; regLab.style.opacity = 0; if (F.temp) { F.mode = 'out'; F.t0 = performance.now(); F.from = F.g.position.clone(); } else wanderInit(F, F.g.position); }
       const reg = row.reg && known(row.reg) ? row.reg : REGS[Math.floor(Math.random() * REGS.length)];
       const P = planeModel('#ffe2a0', reg); P.temp = true; P.o = { t: reg, c: '#ffd27a' }; P.hv = 1; sc.add(P.g); sc.add(P.trail); planes.push(P);
-      const f = new T.Vector3(); cam.getWorldDirection(f); const start = cam.position.clone().addScaledVector(f, 70).add(new T.Vector3(-30, 14, 0));
+      const f = new T.Vector3(); cam.getWorldDirection(f); const start = cam.position.clone().addScaledVector(f, 38).add(new T.Vector3(-18, 9, 0));
       P.g.position.copy(start); flyIn(P, start);
       regLab.innerHTML = hdEsc(row.reg || reg) + '<small>' + hdEsc(no) + ' · ' + Number(row.date.slice(8)) + ' ' + hdMonthTh(row.date.slice(0, 7)) + (row.sector ? ' · ' + hdEsc(row.sector) : '') + (row.reg ? '' : ' · ไม่มีทะเบียนใน SKED') + '</small>';
       return P;
@@ -5695,7 +5711,7 @@ function hdStage() {
         const turn = dt > 0 ? prev.clone().cross(P.vel).y / dt : 0; P.bank += (Math.max(-.65, Math.min(.65, -turn * 1.1)) - P.bank) * Math.min(1, dt * 3);
         P.pos.addScaledVector(P.vel, dt * P.spd * (focusP ? .6 : 1)); p3 = P.pos.clone(); look = p3.clone().add(P.vel);
       } else {
-        const dur = P.mode === 'in' ? 1800 : 1400, k = Math.min(1, (now - P.t0) / dur), e = ease(k);
+        const dur = P.mode === 'in' ? 1100 : 1000, k = Math.min(1, (now - P.t0) / dur), e = ease(k);
         const to = P.mode === 'in' ? frontPos() : cam.position.clone().add(new T.Vector3(40, 18, -60));
         const mid = P.from.clone().lerp(to, .5).add(new T.Vector3(0, P.mode === 'in' ? 2.5 : 1.5, 0));
         const q = (a, b, c2, u) => a.clone().multiplyScalar((1 - u) * (1 - u)).addScaledVector(b, 2 * (1 - u) * u).addScaledVector(c2, u * u);

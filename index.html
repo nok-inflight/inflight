@@ -1101,6 +1101,7 @@ function sriScript(s, src) { if (CDN_SRI[src]) { s.integrity = CDN_SRI[src]; s.c
     body { font-size: 15px; }
     header { padding: 6px 10px; font-size: 14px; position: sticky; top: 0; z-index: 12; }
     header > span:first-child { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 42vw; }
+    body:not(.inapp) header > span:first-child { max-width: none; overflow: visible; } /* r102 หน้าเข้าสู่ระบบ: แสดงชื่อเต็ม */
     #who { display: flex !important; align-items: center; gap: 2px; min-width: 0; }
     #who[style*="none"] { display: none !important; }
     #whoName { max-width: 30vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: inline-block; font-size: 12px; }

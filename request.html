@@ -455,7 +455,7 @@ var CAT_ALIAS = { crew: 'ของใช้ลูกเรือ', cabin: 'ข�
 var NEW = '__new';
 function blankRow() { return { id: '', q: '', f: '', sku: '', name: '', unit: '', cat: 'other', n: null }; }
 var META = { fields: [] };
-var S = { items: [], t: 'out', kind: 'dom', src: (function () { try { return /^elg$/i.test(new URLSearchParams(location.search).get('src') || '') ? 'ELG' : 'IFS'; } catch (e) { return 'IFS'; } })(), rows: [blankRow()], photo: null, d: '', note: '', name: '', dept: '', tel: '' };
+var S = { items: [], t: 'out', kind: 'dom', src: (function () { try { var v = String(new URLSearchParams(location.search).get('src') || '').toUpperCase(); return v === 'ELG' || v === 'BAC' ? v : 'IFS'; } catch (e) { return 'IFS'; } })(), rows: [blankRow()], photo: null, d: '', note: '', name: '', dept: '', tel: '' };
 function $(id) { return document.getElementById(id); }
 function each(sel, fn) { Array.prototype.forEach.call(document.querySelectorAll(sel), fn); }
 function esc(s) { return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
@@ -483,7 +483,7 @@ function shrink(file, max, q) {
 }
 function itemOf(id) { return S.items.filter(function (x) { return x.id === id; })[0]; }
 function catsOf(L) { var c = CATS.slice(); L.forEach(function (x) { if (x.cat && !c.some(function (k) { return k[0] === x.cat; })) c.push([x.cat, CAT_ALIAS[x.cat] || x.cat]); }); return c; }
-// r97 คลังที่เลือก: IFS (ฐานหลัก) / ELG · สินค้าแต่ละคลังแยกกัน
+// r97 คลังที่เลือก: IFS / ELG / BAC (r103) · สินค้าแต่ละคลังแยกกัน
 function inSrc(x) { return x.kind === S.kind && (x.owner || 'IFS') === S.src; }
 function label(x) { return (x.sku ? x.sku + ' · ' : '') + x.name + (x.unit ? ' (' + x.unit + ')' : ''); }
 // แถวสินค้า: พิมพ์ รหัสสินค้า / ชื่อสินค้า แล้วเลือกจากรายการที่ขึ้นมา (พิมพ์ต่อรายการเปลี่ยนตาม · ลบข้อความรายการหายไป)
@@ -565,7 +565,7 @@ function draw() {
   $('app').className = 'form';
   $('app').innerHTML =
     '<div class="card" id="cT"><h2>1 · ประเภทคำขอ</h2>' + seg('sT', [['out', 'เบิกสินค้า'], ['in', 'รับเข้าสินค้า']], S.t) + seg('sK', [['dom', 'DOM'], ['inter', 'INTER']], S.kind) +
-    '<label>เบิก / รับเข้า จากคลังของ</label>' + seg('sS', [['IFS', 'IFS (ฐานหลัก)'], ['ELG', 'ELG']], S.src) +
+    '<label>เบิก / รับเข้า จากคลังของ</label>' + seg('sS', [['IFS', 'IFS'], ['ELG', 'ELG'], ['BAC', 'BAC']], S.src) +
     '<label>วันที่' + w + ' <span class="req">*</span></label><input type="date" id="fD" value="' + (S.d || today()) + '"></div>' +
     '<div class="card" id="cI"><h2>2 · รายการสินค้าที่' + w + ' <small class="hint">(' + S.rows.length + ' รายการ · วันเดียวกัน)</small></h2><div class="itlist">' +
     (true ? S.rows.map(function (r, i) { return rowHtml(L, r, i); }).join('') + '<button type="button" class="sec add" id="bAdd">+ เพิ่มสินค้า (รายการที่ ' + (S.rows.length + 1) + ')</button>' +

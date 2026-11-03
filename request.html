@@ -46,6 +46,8 @@ button.sec { background: #8b8270; } button:disabled { opacity: .6; }
 .seg { display: grid; grid-template-columns: 1fr 1fr; border: 1px solid var(--gold); border-radius: 12px; overflow: hidden; margin-bottom: 8px; }
 .seg button { border-radius: 0; background: transparent; color: var(--ink); font-weight: 600; padding: 11px; }
 .seg button.on { background: var(--gold); color: #fff; }
+#sS { grid-template-columns: repeat(3, 1fr); } /* r104 เลือกคลัง 3 ช่องในแถวเดียว */
+#sS button { white-space: nowrap; padding-left: 4px; padding-right: 4px; }
 .row { display: grid; grid-template-columns: minmax(0, 1fr) 92px 44px; gap: 6px; margin-bottom: 8px; } .row button { padding: 8px; }
 .ph { display: flex; gap: 10px; align-items: center; margin-top: 10px; min-height: 40px; } .ph img { width: 130px; height: 100px; object-fit: cover; border-radius: 10px; border: 1px solid var(--line); }
 .btns { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }

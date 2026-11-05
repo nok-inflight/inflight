@@ -2865,7 +2865,7 @@ function showSettings() {
   $('setBox').style.display = 'flex';
   if ($('stWake1')) { $('stWake1').onclick = () => { vcWakeSet(true); showSettings(); }; $('stWake0').onclick = () => { vcWakeSet(false); showSettings(); }; }
   if ($('setVol')) { $('setVol').oninput = () => { $('setVolN').textContent = $('setVol').value + '%'; }; $('setVol').onchange = () => { SET.vol = Number($('setVol').value); SET.vol2 = 1; saveSettings(); BEEP_AT = 0; beep(true); }; }
-  each('#setBox .seg button', b => { b.onclick = () => { const v = b.dataset.v; SET[b.dataset.k] = /^\d+$/.test(v) ? Number(v) : v; saveSettings(); showSettings(); if (b.dataset.k === 'c3q') { CITY_QA = null; CITY_QMAX = 2; CITY_FAIL = false; try { sessionStorage.removeItem('io_c3qa'); sessionStorage.removeItem('io_c3qmax'); } catch (e) { } } if ((b.dataset.k === 'home3d' || b.dataset.k === 'c3q') && $('app').dataset.z === 'home') showHome(); }; });
+  each('#setBox .seg button[data-k]', b => { b.onclick = () => { const v = b.dataset.v; SET[b.dataset.k] = /^\d+$/.test(v) ? Number(v) : v; saveSettings(); showSettings(); if (b.dataset.k === 'c3q') { CITY_QA = null; CITY_QMAX = 2; CITY_FAIL = false; try { sessionStorage.removeItem('io_c3qa'); sessionStorage.removeItem('io_c3qmax'); } catch (e) { } } if ((b.dataset.k === 'home3d' || b.dataset.k === 'c3q') && $('app').dataset.z === 'home') showHome(); }; });
   each('#setBox input[type=checkbox]', c => {
     c.onchange = async () => {
       const k = c.dataset.k;
@@ -19193,8 +19193,7 @@ function jvSpeak(L) {
   JV.busy = true; VC.busy = true; vcWakePause();
   const done = new Promise(ok => { JV.fin = ok; });
   const sex = SET.jvSex === 'm' ? 'm' : 'f';
-  const half = Math.ceil((L.length - 2) / 2);
-  const parts = L.length <= 3 ? [L] : [L.slice(0, 2), L.slice(2, 2 + half), L.slice(2 + half)].filter(x => x.length);
+  const parts = L.length <= 2 ? [L] : [L.slice(0, 1), L.slice(1, 1 + Math.ceil((L.length - 1) / 2)), L.slice(1 + Math.ceil((L.length - 1) / 2))].filter(x => x.length);   // r160 ท่อนแรก 1 ประโยค ได้เสียงเร็วขึ้น
   const tts = x => { QUIET.push('ioTts'); const p = call_('ioTts', [TOKEN, x.join(' '), sex]); p.finally(() => { const i = QUIET.lastIndexOf('ioTts'); if (i >= 0) QUIET.splice(i, 1); }).catch(() => { }); p.catch(() => { }); return p; };
   const P = [tts(parts[0]), parts[1] ? tts(parts[1]) : null];
   let started = false, local = false;
@@ -19513,14 +19512,59 @@ function vcOv(text, mode) {
   o.classList.toggle('talk', mode === 'listen' || mode === 'talk');
   $('vcSub').textContent = vcP(text);
 }
+// r160 เสียงตอบกลับใช้เสียง AI ตัวเดียวกับเสียงสรุป (Gemini) · ประโยคที่เคยพูดเก็บไว้ในเครื่อง ครั้งต่อไปพูดทันที
+const VC_TTS = new Map();
+async function vcTtsGet(t) {
+  const sex = SET.jvSex === 'm' ? 'm' : 'f', key = sex + '|' + t, url = '/__tts/' + encodeURIComponent(key);
+  if (VC_TTS.has(key)) return VC_TTS.get(key);
+  let r = null;
+  try { const c = await caches.open('ifs-tts'), hit = await c.match(url); if (hit) r = await hit.json(); } catch (e) { }
+  if (!r) {
+    r = await impQuiet(['ioTts'], () => call_('ioTts', [TOKEN, t, sex]));
+    r = { b64: r.b64, rate: r.rate || 24000 };
+    try { const c = await caches.open('ifs-tts'); await c.put(url, new Response(JSON.stringify(r), { headers: { 'content-type': 'application/json' } })); } catch (e) { }
+  }
+  VC_TTS.set(key, r); return r;
+}
+// ปลดล็อกการเล่นเสียงตอนผู้ใช้กดไมค์ (iPhone / iPad ไม่ให้เล่นเสียงทีหลังถ้าไม่ปลดล็อกก่อน) · ใช้ตัวเล่นตัวเดียวตลอด
+function vcAudioUnlock() {
+  if (!VC.au) VC.au = new Audio();
+  if (VC.auOk) return;
+  try { VC.au.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; const p = VC.au.play(); if (p) p.then(() => { VC.auOk = 1; }).catch(() => { }); } catch (e) { }
+}
+function vcPlayPcm(r) {
+  return new Promise((ok, ko) => {
+    const pcm = Uint8Array.from(atob(r.b64), c => c.charCodeAt(0)), rate = r.rate || 24000, hd = new DataView(new ArrayBuffer(44));
+    const w = (o, t) => { for (let i = 0; i < t.length; i++) hd.setUint8(o + i, t.charCodeAt(i)); };
+    w(0, 'RIFF'); hd.setUint32(4, 36 + pcm.length, true); w(8, 'WAVE'); w(12, 'fmt '); hd.setUint32(16, 16, true); hd.setUint16(20, 1, true); hd.setUint16(22, 1, true);
+    hd.setUint32(24, rate, true); hd.setUint32(28, rate * 2, true); hd.setUint16(32, 2, true); hd.setUint16(34, 16, true); w(36, 'data'); hd.setUint32(40, pcm.length, true);
+    const url = URL.createObjectURL(new Blob([hd.buffer, pcm], { type: 'audio/wav' })), a = VC.au || (VC.au = new Audio());
+    const end = f => { a.onended = a.onerror = null; URL.revokeObjectURL(url); f(); };
+    a.onended = () => end(ok); a.onerror = () => end(ko);
+    a.src = url; const p = a.play(); if (p) p.catch(() => end(ko));
+  });
+}
+function vcSayLocal(t, fin) {
+  if (!('speechSynthesis' in window) || !jvVoice()) { fin(); return; }
+  try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'th-TH'; const v = jvVoice(); if (v) u.voice = v; u.rate = 1.05; u.onend = fin; u.onerror = fin; speechSynthesis.speak(u); setTimeout(fin, 12000); } catch (e) { fin(); }
+}
 function vcSay(t, keep) {
   t = vcP(t); vcOv(t, 'talk');
   return new Promise(done => {
-    const fin = () => { VC.busy = false; if (!keep) setTimeout(() => { if ($('vcSub') && $('vcSub').textContent === t) vcOv(''); }, 2200); vcWakeResume(); done(); };
-    if (!('speechSynthesis' in window)) { fin(); return; }
+    let ended = false, local = false;
+    const fin = () => { if (ended) return; ended = true; VC.busy = false; if (!keep) setTimeout(() => { if ($('vcSub') && $('vcSub').textContent === t) vcOv(''); }, 2200); vcWakeResume(); done(); };
     VC.busy = true; vcWakePause();
-    try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'th-TH'; const v = jvVoice(); if (v) u.voice = v; u.rate = 1.05; u.onend = fin; u.onerror = fin; speechSynthesis.speak(u); setTimeout(() => { if (VC.busy) fin(); }, 12000); } catch (e) { fin(); }
+    // สร้างเสียงไม่ทันใน 6 วินาที / ไม่สำเร็จ → ใช้เสียงของเครื่องแทน (ไม่ปล่อยเงียบ)
+    const toLocal = () => { if (local || ended) return; local = true; vcSayLocal(t, fin); };
+    const tm = setTimeout(toLocal, 6000);
+    vcTtsGet(t).then(r => { if (local || ended) return; clearTimeout(tm); vcPlayPcm(r).then(fin, toLocal); }).catch(() => { clearTimeout(tm); toLocal(); });
+    setTimeout(fin, 25000);
   });
+}
+// เตรียมเสียงประโยคที่ใช้บ่อยไว้ล่วงหน้า (ครั้งเดียวต่อเครื่อง · ใช้ cache ฝั่งเซิร์ฟเวอร์ร่วมกันทุกคน)
+function vcTtsWarm() {
+  if (VC.warm) return; VC.warm = 1;
+  ['ครับ', 'ดูคำตอบในหน้าต่างผู้ช่วยครับ', 'เปิดหน้า แดชบอร์ด ครับ', 'เปิดหน้า Final meal ครับ'].forEach((x, i) => setTimeout(() => vcTtsGet(vcP(x)).catch(() => { }), 1500 + i * 2500));
 }
 // r158 ข้อความเมื่อฟังไม่ได้ (แสดงค้างบนจอให้เห็นชัด)
 function vcMicMsg(code) {
@@ -19575,13 +19619,16 @@ async function vcRecOnce(follow) {
 // กดแล้วพูด 1 ประโยค
 function vcListenOnce(follow) {
   if (VC.once) { vcStopOnce(); return; }
+  vcAudioUnlock(); vcTtsWarm();
+  if (navigator.standalone === true) VC.useRec = true;   // r159 แอปบนหน้าจอโฮมของ iPad / iPhone: บริการฟังของ Safari ใช้ไม่ได้
   if (!VC_SR || VC.useRec) { if (!follow && JV.on) jvStop(); vcRecOnce(follow); return; }
   if (!follow && JV.on) jvStop();
   vcWakePause();
   const r = new VC_SR(); r.lang = 'th-TH'; r.interimResults = true; r.continuous = false; r.maxAlternatives = 1;
   VC.once = r; let fin = '';
   vcOv(follow ? 'ถามต่อได้เลยครับ (ไม่พูดจะปิดเอง)' : 'พูดคำสั่งได้เลยครับ', 'listen'); each('.vcmic', b => b.classList.add('on'));
-  r.onresult = e => { let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) { t += e.results[i][0].transcript; if (e.results[i].isFinal) fin = t; } if ($('vcSub')) $('vcSub').textContent = t || 'กำลังฟัง...'; };
+  let heard = false;
+  r.onresult = e => { heard = true; let t = ''; for (let i = e.resultIndex; i < e.results.length; i++) { t += e.results[i][0].transcript; if (e.results[i].isFinal) fin = t; } if ($('vcSub')) $('vcSub').textContent = t || 'กำลังฟัง...'; };
   let err = '';
   r.onerror = e => { err = e.error || 'x'; };
   r.onend = () => {
@@ -19589,14 +19636,18 @@ function vcListenOnce(follow) {
     if (fin.trim()) { vcCommand(fin.trim(), 'ptt', !!follow); return; }
     // บริการฟังของเบราว์เซอร์ใช้ไม่ได้ (เน็ตบริษัทบล็อก / เบราว์เซอร์ไม่รองรับ) → เปลี่ยนไปอัดเสียงแล้วแปลงที่เซิร์ฟเวอร์ ตลอดการใช้งานรอบนี้
     if (/network|service-not-allowed|language-not-supported|bad-grammar/.test(err)) { VC.useRec = true; vcOv(''); vcRecOnce(follow); return; }
-    if (err === 'not-allowed' || err === 'audio-capture' || (err === 'no-speech' && !follow)) { vcMicMsg(err); return; }
+    if (err === 'not-allowed' || err === 'audio-capture') { vcMicMsg(err); return; }
+    // r159 ฟังเงียบ ๆ ไม่ได้อะไรกลับมาเลย (พบบ่อยบนแท็บเล็ต / iPad) → เปลี่ยนไปอัดเสียงแล้วแปลงที่เซิร์ฟเวอร์
+    if (!follow && !heard && !r.__user) { if (err !== 'no-speech') VC.useRec = true; vcRecOnce(follow); return; }
     vcOv(''); vcWakeResume();
   };
-  try { r.start(); } catch (e) { VC.once = null; vcOv(''); }
+  try { r.start(); } catch (e) { VC.once = null; VC.useRec = true; vcRecOnce(follow); return; }
+  // ไม่มีเสียงตอบกลับจากบริการฟังใน 7 วินาที (บางเครื่องค้างเงียบ) → หยุดแล้วเปลี่ยนวิธี
+  if (!follow) setTimeout(() => { if (VC.once === r && !heard) { try { r.abort(); } catch (e) { } } }, 7000);
   // ถามต่อ: ไม่มีเสียงพูดใน 9 วินาที ปิดไมค์เอง
   if (follow) setTimeout(() => { if (VC.once === r && !fin) { try { r.stop(); } catch (e) { } } }, 9000);
 }
-function vcStopOnce() { if (VC.once) { try { VC.once.abort(); } catch (e) { } VC.once = null; each('.vcmic', b => b.classList.remove('on')); } }
+function vcStopOnce() { if (VC.once) { VC.once.__user = 1; try { VC.once.abort(); } catch (e) { } VC.once = null; each('.vcmic', b => b.classList.remove('on')); } }
 // ----- โหมดฟังตลอด (เปิด / ปิดแยกแต่ละเครื่อง) -----
 const vcWakeOn = () => !!lsGet('io_wake', false);
 function vcWakeStart() {
@@ -19628,6 +19679,8 @@ function vcWakeStart() {
 function vcWakePause() { clearTimeout(VC.t); if (VC.rec) { const r = VC.rec; VC.rec = null; r.onend = null; try { r.abort(); } catch (e) { } } vcInd(); }
 function vcWakeResume() { if (vcWakeOn() && !VC.busy && !VC.once) { clearTimeout(VC.t); VC.t = setTimeout(vcWakeStart, 500); } }
 function vcWakeSet(on) {
+  if (on && (!VC_SR || VC.useRec)) { lsSet('io_wake', false); toast('เครื่อง / เบราว์เซอร์นี้ใช้โหมดฟังตลอดไม่ได้ · กดปุ่มไมค์ที่แถบบนแล้วพูดแทน'); return; }
+  if (on) vcAudioUnlock();
   lsSet('io_wake', !!on); VC.last = Date.now();
   if (on) { vcWakeStart(); toast('เปิดโหมดฟังตลอดแล้ว · พูด "สวัสดี อินไฟล์ท" ตามด้วยคำสั่ง', true); } else { vcWakePause(); toast('ปิดโหมดฟังตลอดแล้ว', true); }
 }
@@ -19675,7 +19728,7 @@ async function vcCommand(text, src, follow) {
   vcOv('"' + t + '"', 'talk');
   let ok = true;
   try {
-    if (/^(ปิด|หยุด|เงียบ|ยกเลิก)/.test(t)) { try { speechSynthesis.cancel(); } catch (e) { } jvStop(); vcOv(''); vcWakeResume(); return; }
+    if (/^(ปิด|หยุด|เงียบ|ยกเลิก)/.test(t)) { try { speechSynthesis.cancel(); if (VC.au) VC.au.pause(); } catch (e) { } jvStop(); vcOv(''); vcWakeResume(); return; }
     if (/ปิด.{0,6}(ฟังตลอด|โหมดฟัง)/.test(t)) { vcWakeSet(false); vcOv(''); return; }
     if (follow && /^(พอ|พอแล้ว|ขอบคุณ|ไม่มี|จบ|โอเค|ok|เรียบร้อย)/i.test(t)) { await vcSay('ยินดีครับ'); return; }
     if (IBX_RX.test(t)) { vcOv(vcP('กำลังตรวจกล่องรับไฟล์จากอีเมล...'), 'talk'); await inboxRun(true, m => vcSay(m)); return; }

@@ -19481,7 +19481,9 @@ async function sysAi(res) {
 // โหมดฟังตลอด: ประโยคที่ไม่ได้ขึ้นต้นด้วยคำเรียก ทิ้งทันที ไม่เก็บ ไม่ส่งเข้าระบบ · ส่งให้ AI เฉพาะข้อความคำสั่งหลังคำเรียก
 const VC = { rec: null, wake: false, armed: 0, busy: false, last: Date.now(), t: 0, follow: 0, ctx: null };
 const VC_SR = window.SpeechRecognition || window.webkitSpeechRecognition;
-const VC_WAKE = /(สวัสดี|หวัดดี|ดี)\s*(ค่ะ|ครับ|คับ)?\s*(อิน\s*ไฟ\S*|อิน\s*ฟลาย\S*|in\s*flight\S*|inflight\S*)/i;
+// r161 คำเรียกหลวมขึ้น: เครื่องถอดเสียงได้หลายแบบ (อินไฟท์ / อินไลท์ / อินฟลายท์ / in-flight / Inflight) · ขึ้นต้นด้วยชื่ออย่างเดียวก็ได้
+const VC_WN = String.raw`(?:อิน[\s-]*(?:ไฟ|ไล|ฟลาย|ฟล|เฟ|ฟาย)(?:ลท์|ล์ท|ท์|ต์|ล์|ลท|ท|ต)?|in[\s-]*f?l(?:i|a|y)(?:ght|gh|te|t)?s?|inflights?)`;
+const VC_WAKE = new RegExp('^(?:(?:สวัสดี|หวัดดี|ดีจ้า|ดี|hello|hi|hey|เฮ้)\\s*(?:ค่ะ|คะ|ครับ|คับ|จ้า)?\\s*)?' + VC_WN + '|(?:สวัสดี|หวัดดี)\\s*(?:ค่ะ|คะ|ครับ|คับ)?\\s*' + VC_WN, 'i');
 const VC_PAGES = [
   ['หน้าหลัก', /หน้าหลัก|หน้าแรก|โฮม|home/i, () => go('home'), null],
   ['แดชบอร์ด', /แดชบอร์ด|แดชบอด|dashboard/i, () => showZoneGo('inflight', 'dash'), 'inflight'],
@@ -19662,7 +19664,8 @@ function vcWakeStart() {
         VC.last = Date.now();
         const rest = t.slice(t.indexOf(m[0]) + m[0].length).replace(/^[\s,.]+/, '');
         if (rest.length > 1) vcCommand(rest, 'wake', VC.follow > Date.now());
-        else { VC.armed = Date.now() + 8000; vcSay('ครับ', true); }
+        // r161 เรียกชื่ออย่างเดียว: ไม่พูดตอบ (ระหว่างพูดไมค์ต้องหยุดฟัง ทำให้คำสั่งถัดไปหาย) · ขึ้นข้อความ + เสียงติ๊ด แล้วฟังต่อทันที
+        else { VC.armed = Date.now() + 9000; vcOv(vcP('ครับ พูดคำสั่งได้เลย'), 'listen'); try { BEEP_AT = 0; beep(true); } catch (e) { } setTimeout(() => { if (VC.armed && VC.armed <= Date.now() + 100 && $('vcSub') && /พูดคำสั่งได้เลย/.test($('vcSub').textContent)) vcOv(''); }, 9200); }
       } else if (VC.armed > Date.now()) { VC.armed = 0; vcCommand(t, 'wake', VC.follow > Date.now()); }
       // ประโยคอื่นไม่ทำอะไร ไม่เก็บ
     }

@@ -19276,9 +19276,10 @@ function jvSpeak(L) {
   let started = false, local = false;
   // r139 เครื่องที่ไม่มีเสียงไทย: รอเสียงจาก Gemini นานขึ้น (ครั้งแรกสร้างเสียงใช้เวลา) ไม่สลับไปเสียงเครื่องที่อ่านไทยไม่ได้
   const thOK = () => !!jvVoice();
-  const toLocal = from => { if (local) return; local = true; jvLocal(parts.slice(from).reduce((a, x) => a.concat(x), [])); };
+  // r168 ไม่ใช้เสียงของเครื่องเลย: สร้างเสียง AI ไม่สำเร็จ → แสดงคำบรรยายเป็นข้อความ (หน้าจอยังเปลี่ยนตามเรื่อง)
+  const toLocal = from => { if (local) return; local = true; jvTextOnly(parts.slice(from).reduce((a, x) => a.concat(x), [])); };
   if ($('jvSub')) $('jvSub').textContent = 'กำลังเตรียมเสียงสรุป...';
-  let tm = 0; jvVoicesReady().then(() => { if (!JV.on || started || local) return; tm = setTimeout(() => { if (JV.on && !started && thOK()) toLocal(0); }, thOK() ? 8000 : 40000); });
+  let tm = 0; jvVoicesReady().then(() => { if (!JV.on || started || local) return; tm = setTimeout(() => { if (JV.on && !started) { toast('สร้างเสียง AI ช้าเกินไป · แสดงเป็นข้อความแทน'); toLocal(0); } }, 45000); });
   const play = async i => {
     if (!JV.on || local) return;
     if (i >= parts.length) { setTimeout(jvStop, 400); return; }
@@ -19287,11 +19288,11 @@ function jvSpeak(L) {
     try { r = await P[i]; } catch (e) {
       if (!JV.on || local) return;
       if (i === 0) { clearTimeout(tm); if (!/ioTts|ไม่อนุญาต|GEMINI_KEY|โควตา/.test(e.message)) toast(e.message); }
-      await jvVoicesReady(); if (!thOK()) { toast('สร้างเสียงไทยไม่สำเร็จ · ลองกดอีกครั้ง'); jvStop(); return; }
+      if (i === 0) toast('สร้างเสียง AI ไม่สำเร็จ · แสดงเป็นข้อความแทน');
       toLocal(i); return;
     }
     if (!JV.on || local) return;
-    if (i === 0) { started = true; clearTimeout(tm); for (let k = 2; k < parts.length; k++) if (!P[k]) P[k] = tts(parts[k]); }
+    if (i === 0) { started = true; VC.ttsOk = 1; clearTimeout(tm); for (let k = 2; k < parts.length; k++) if (!P[k]) P[k] = tts(parts[k]); }
     jvPlayPcm(r, parts[i], () => play(i + 1));
   };
   play(0);
@@ -19320,6 +19321,16 @@ function jvVoicesReady() {
   });
 }
 try { if ('speechSynthesis' in window) speechSynthesis.getVoices(); } catch (e) { }
+function jvTextOnly(L) {
+  let i = 0;
+  const next = () => {
+    if (!JV.on) return;
+    if (i >= L.length) { setTimeout(jvStop, 800); return; }
+    const t = L[i++]; if ($('jvSub')) $('jvSub').textContent = t; jvShowFor(t);
+    setTimeout(next, Math.max(2500, t.length * 90));
+  };
+  next();
+}
 async function jvLocal(L) {
   await jvVoicesReady();
   if (!('speechSynthesis' in window)) { toast('เบราว์เซอร์นี้พูดไม่ได้'); jvStop(); return; }
@@ -19624,8 +19635,17 @@ function vcPlayPcm(r) {
   });
 }
 function vcSayLocal(t, fin) {
+  setTimeout(fin, Math.max(1500, String(t).length * 70)); return;   // r168 ไม่ใช้เสียงของเครื่อง: แสดงข้อความอย่างเดียว
   if (!('speechSynthesis' in window) || !jvVoice()) { fin(); return; }
   try { speechSynthesis.cancel(); const u = new SpeechSynthesisUtterance(t); u.lang = 'th-TH'; const v = jvVoice(); if (v) u.voice = v; u.rate = 1.05; u.onend = fin; u.onerror = fin; speechSynthesis.speak(u); setTimeout(fin, 12000); } catch (e) { fin(); }
+}
+// r167 ประโยคสั้นระหว่างรอ (เช่น "สักครู่ กำลังสรุปยอด"): มีเสียง AI ในเครื่องแล้วค่อยพูด · ไม่มีก็ขึ้นข้อความอย่างเดียว (ไม่ให้เสียงเครื่องมาคั่นก่อนเสียงสรุป)
+async function vcSayIfReady(t) {
+  t = vcP(t); const key = (SET.jvSex === 'm' ? 'm' : 'f') + '|' + t;
+  let hit = VC_TTS.has(key);
+  if (!hit) { try { const c = await caches.open('ifs-tts'); hit = !!(await c.match('/__tts/' + encodeURIComponent(key))); } catch (e) { } }
+  if (hit) return vcSay(t);
+  vcOv(t, 'talk'); vcTtsGet(t).catch(() => { });
 }
 function vcSay(t, keep) {
   t = vcP(t); vcOv(t, 'talk');
@@ -19635,15 +19655,16 @@ function vcSay(t, keep) {
     VC.busy = true; vcWakePause();
     // สร้างเสียงไม่ทันใน 6 วินาที / ไม่สำเร็จ → ใช้เสียงของเครื่องแทน (ไม่ปล่อยเงียบ)
     const toLocal = () => { if (local || ended) return; local = true; vcSayLocal(t, fin); };
-    const tm = setTimeout(toLocal, 6000);
-    vcTtsGet(t).then(r => { if (local || ended) return; clearTimeout(tm); vcPlayPcm(r).then(fin, toLocal); }).catch(() => { clearTimeout(tm); toLocal(); });
+    // r167 เคยได้เสียง AI แล้ว = รอเสียง AI (ไม่สลับเป็นเสียงเครื่อง ทำให้เสียงไม่เหมือนกัน) · สลับเฉพาะตอนสร้างเสียงไม่สำเร็จ
+    const tm = setTimeout(toLocal, 30000);
+    vcTtsGet(t).then(r => { VC.ttsOk = 1; if (local || ended) return; clearTimeout(tm); vcPlayPcm(r).then(fin, toLocal); }).catch(() => { clearTimeout(tm); toLocal(); });
     setTimeout(fin, 25000);
   });
 }
 // เตรียมเสียงประโยคที่ใช้บ่อยไว้ล่วงหน้า (ครั้งเดียวต่อเครื่อง · ใช้ cache ฝั่งเซิร์ฟเวอร์ร่วมกันทุกคน)
 function vcTtsWarm() {
   if (VC.warm) return; VC.warm = 1;
-  ['ครับ', 'ดูคำตอบในหน้าต่างผู้ช่วยครับ', 'เปิดหน้า แดชบอร์ด ครับ', 'เปิดหน้า Final meal ครับ'].forEach((x, i) => setTimeout(() => vcTtsGet(vcP(x)).catch(() => { }), 1500 + i * 2500));
+  ['สักครู่ครับ กำลังสรุปยอด' + vcMonthTh(today().slice(0, 7)), 'ครับ', 'ดูคำตอบในหน้าต่างผู้ช่วยครับ', 'เปิดหน้า แดชบอร์ด ครับ', 'เปิดหน้า Final meal ครับ'].forEach((x, i) => setTimeout(() => vcTtsGet(vcP(x)).catch(() => { }), 1500 + i * 2500));
 }
 // r158 ข้อความเมื่อฟังไม่ได้ (แสดงค้างบนจอให้เห็นชัด)
 function vcMicMsg(code) {
@@ -19870,7 +19891,7 @@ async function vcSales(month) {
   if (JV.on) jvStop();
   DASH_M = month; DS.open = ''; JV.r = null;
   showZoneGo(vcCan('inflight') ? 'inflight' : 'accounting', 'dash');
-  const say = vcSay('สักครู่ครับ กำลังสรุปยอด' + vcMonthTh(month));
+  const say = vcSayIfReady('สักครู่ครับ กำลังสรุปยอด' + vcMonthTh(month));
   for (let i = 0; i < 60 && !(JV.r && JV.r.month === month); i++) await new Promise(ok => setTimeout(ok, 250));
   await say; vcOv('');
   if (!JV.r || JV.r.month !== month) { await vcSay('โหลดข้อมูลแดชบอร์ดไม่ทันครับ ลองใหม่อีกครั้ง'); return false; }

@@ -2866,11 +2866,13 @@ function showSettings() {
     '<div class="sg"><b>รูปสินค้าต่อแถว (หน้าคีย์ใบขาย)</b>' + seg('tiles', [[2, '2'], [3, '3'], [4, '4']]) + '</div>' +
     '<div class="sg"><b>แชท</b>' + ck('chat', 'แสดงหน้าต่างแชทมุมขวาล่าง') + '</div>' +
     '<div class="sg"><b>สั่งงานด้วยเสียง</b><small class="hint">กดปุ่มไมค์ที่แถบบนแล้วพูด เช่น "เปิดหน้าประชุม" "สินค้าตัวไหนใกล้หมด" "นัดประชุมพรุ่งนี้สิบโมง"</small>' +
+      '<label class="dl" style="display:block;margin:4px 0 8px">ชื่อที่ให้ AI เรียก (ภาษาไทย) <input id="stCall" maxlength="30" placeholder="เช่น วรัญญู" value="' + esc(SET.callName || '') + '" style="width:160px"></label>' +
       '<div class="seg"><button class="' + (vcWakeOn() ? '' : 'sec') + '" id="stWake1">ฟังตลอด (สวัสดี อินไฟล์ท)</button><button class="' + (vcWakeOn() ? 'sec' : '') + '" id="stWake0">ปิด</button></div>' +
       '<small class="hint">เปิดเฉพาะเครื่องนี้ · ต้องเปิดหน้าเว็บค้างไว้ · ระหว่างเปิด เบราว์เซอร์ส่งเสียงไปแปลงเป็นข้อความ (Chrome ใช้ Google) ระบบเก็บเฉพาะคำสั่งหลังคำว่า "สวัสดี อินไฟล์ท" ไม่ควรเปิดระหว่างคุยเรื่องลับ · ปิดเองถ้าไม่มีการเรียก 30 นาที</small></div>' +
     '<div class="sg"><b>ออกจากระบบอัตโนมัติ เมื่อไม่ได้ใช้งาน</b>' + seg('idle', [[15, '15 นาที'], [30, '30 นาที'], [45, '45 นาที'], [60, '60 นาที']]) + '<small class="hint">กันคนอื่นใช้บัญชีต่อเมื่อเปิดเว็บค้างไว้ · เตือนก่อนออก 1 นาที</small></div>' +
     '<div class="sg"><b>บัญชี</b><button class="sec" id="setPw">เปลี่ยนรหัสผ่าน</button> <button class="sec" id="setReset">คืนค่าตั้งต้น</button></div></div>';
   $('setBox').style.display = 'flex';
+  if ($('stCall')) $('stCall').onchange = () => { SET.callName = $('stCall').value.trim().slice(0, 30); saveSettings(); toast(SET.callName ? 'AI จะเรียกว่า คุณ' + SET.callName : 'AI จะไม่เรียกชื่อ', true); };
   if ($('stWake1')) { $('stWake1').onclick = () => { vcWakeSet(true); showSettings(); }; $('stWake0').onclick = () => { vcWakeSet(false); showSettings(); }; }
   if ($('setVol')) { $('setVol').oninput = () => { $('setVolN').textContent = $('setVol').value + '%'; }; $('setVol').onchange = () => { SET.vol = Number($('setVol').value); SET.vol2 = 1; saveSettings(); BEEP_AT = 0; beep(true); }; }
   each('#setBox .seg button[data-k]', b => { b.onclick = () => { const v = b.dataset.v; SET[b.dataset.k] = /^\d+$/.test(v) ? Number(v) : v; saveSettings(); showSettings(); if (b.dataset.k === 'c3q') { CITY_QA = null; CITY_QMAX = 2; CITY_FAIL = false; try { sessionStorage.removeItem('io_c3qa'); sessionStorage.removeItem('io_c3qmax'); } catch (e) { } } if ((b.dataset.k === 'home3d' || b.dataset.k === 'c3q') && $('app').dataset.z === 'home') showHome(); }; });
@@ -19159,13 +19161,19 @@ const jvProd = n => {
   const c = S.filter(x => String(x.name).toLowerCase().trim() === k)[0] || S.filter(x => String(x.name).length >= 4 && k.indexOf(String(x.name).toLowerCase().trim()) >= 0)[0];
   if (c) return c.say;
   const h = JV_PROD.filter(x => x[0].test(String(n || '')))[0]; return h ? h[1] : String(n || '').replace(/\(.*?\)|™|'|\d+\s*(ml|g)\b/gi, '').trim(); };
+// r169 ชื่อที่ AI เรียก: ตั้งเองในตั้งค่า (ภาษาไทย) · ไม่ได้ตั้งและชื่อในระบบเป็นภาษาอังกฤษ → ไม่เรียกชื่อ (กันอ่านผิด)
+function jvCallName() {
+  const c = String(SET.callName || '').trim(); if (c) return c;
+  const n = String(ME.name || '').replace(/\s*\(.*\)$/, '').split(' ')[0];
+  return /[\u0E00-\u0E7F]/.test(n) ? n : '';
+}
 function jvScript(r, x, low) {
   const MN = ['มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน', 'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'];
   const hr = new Date().getHours(), mo = Number(r.month.slice(5, 7)), isCur = r.month === today().slice(0, 7);
   const n = new Date(Number(r.month.slice(0, 4)), mo, 0).getDate(), el = isCur ? Math.max(1, Number(today().slice(8))) : n;
   const c = r.cur, p = r.pre, L = [], tip = [];
-  const nick = String(ME.name || '').replace(/\s*\(.*\)$/, '').split(' ')[0];
-  L.push((hr < 12 ? 'สวัสดีตอนเช้าค่ะ' : hr < 17 ? 'สวัสดีค่ะ' : 'สวัสดีตอนเย็นค่ะ') + ' คุณ' + nick + ' ขอสรุปยอดขายบนเครื่องบินเดือน' + MN[mo - 1] + (isCur ? ' ถึงวันนี้' : '') + 'ให้ฟังนะคะ');
+  const nick = jvCallName();
+  L.push((hr < 12 ? 'สวัสดีตอนเช้าค่ะ' : hr < 17 ? 'สวัสดีค่ะ' : 'สวัสดีตอนเย็นค่ะ') + (nick ? ' คุณ' + nick : '') + ' ขอสรุปยอดขายบนเครื่องบินเดือน' + MN[mo - 1] + (isCur ? ' ถึงวันนี้' : '') + 'ให้ฟังนะคะ');
   if (!c.n) { L.push((isCur ? 'เดือนนี้' : 'เดือน' + MN[mo - 1]) + 'ยังไม่มีข้อมูลยอดขายเลยค่ะ ถ้ามีไฟล์ใบเสร็จหรือใบขาย นำเข้าได้ที่ศูนย์นำเข้าไฟล์นะคะ'); return L; }
   L.push('ยอดขายรวมอยู่ที่' + jvMoney(c.grand) + ' จากใบขาย' + thWords(c.n) + 'ใบค่ะ');
   if (c.grand) { const fb = c.fb / c.grand * 100; L.push('แบ่งเป็นอาหารและเครื่องดื่ม' + thWords(Math.round(fb)) + 'เปอร์เซ็นต์ ที่เหลือเป็นสินค้าที่ระลึกค่ะ'); if (100 - fb < 10) tip.push('สินค้าที่ระลึกยังขายได้น้อย ลองให้ลูกเรือช่วยแนะนำสินค้ากลุ่มนี้เพิ่มดูค่ะ'); }
@@ -19255,6 +19263,9 @@ function jvPre(month) {
 const jvSexT = t => SET.jvSex === 'm' ? String(t).replace(/นะคะ/g, 'นะครับ').replace(/ค่ะ/g, 'ครับ').replace(/คะ(?=\s|$)/g, 'ครับ') : String(t);
 async function jvToggle() {
   if (JV.on) { jvStop(); return; }
+  return jvStart();
+}
+async function jvStart() {
   if (!JV.r) { toast('รอโหลดข้อมูลแดชบอร์ดก่อน'); return; }
   jvOvOpen();
   const pre = await jvPre(JV.r.month);
@@ -19891,11 +19902,20 @@ async function vcSales(month) {
   if (JV.on) jvStop();
   DASH_M = month; DS.open = ''; JV.r = null;
   showZoneGo(vcCan('inflight') ? 'inflight' : 'accounting', 'dash');
-  const say = vcSayIfReady('สักครู่ครับ กำลังสรุปยอด' + vcMonthTh(month));
-  for (let i = 0; i < 60 && !(JV.r && JV.r.month === month); i++) await new Promise(ok => setTimeout(ok, 250));
-  await say; vcOv('');
-  if (!JV.r || JV.r.month !== month) { await vcSay('โหลดข้อมูลแดชบอร์ดไม่ทันครับ ลองใหม่อีกครั้ง'); return false; }
-  await jvToggle();
+  // r169 รอข้อมูลจนโหลดเสร็จ (สูงสุด 2 นาที) แล้วสรุปต่อเอง · ระหว่างรอแสดงแถบเสียงพร้อมสถานะ กด "หยุด" ยกเลิกได้
+  await vcSayIfReady('สักครู่ครับ กำลังสรุปยอด' + vcMonthTh(month)); vcOv('');
+  if (!(JV.r && JV.r.month === month)) {
+    jvOvOpen('กำลังโหลดข้อมูลยอดขาย' + vcMonthTh(month) + '...');
+    const t0 = Date.now();
+    while (!(JV.r && JV.r.month === month) && Date.now() - t0 < 120000) {
+      if (!JV.on) return false;
+      await new Promise(ok => setTimeout(ok, 300));
+      if ($('jvSub') && Date.now() - t0 > 15000) $('jvSub').textContent = 'ข้อมูลเยอะ กำลังโหลดอยู่ อีกสักครู่ค่ะ...';
+    }
+    if (!JV.on) return false;
+    if (!(JV.r && JV.r.month === month)) { jvStop(); await vcSay('โหลดข้อมูลแดชบอร์ดไม่สำเร็จครับ ลองใหม่อีกครั้ง'); return false; }
+  }
+  await jvStart();
 }
 async function vcCompare(m1, m2) {
   if (!vcCan('inflight') && !vcCan('accounting')) { await vcSay('บัญชีนี้ดูยอดขายไม่ได้ครับ'); return false; }

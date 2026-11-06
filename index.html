@@ -19263,6 +19263,7 @@ function jvPre(month) {
 const jvSexT = t => SET.jvSex === 'm' ? String(t).replace(/นะคะ/g, 'นะครับ').replace(/ค่ะ/g, 'ครับ').replace(/คะ(?=\s|$)/g, 'ครับ') : String(t);
 async function jvToggle() {
   if (JV.on) { jvStop(); return; }
+  vcAudioUnlock();
   return jvStart();
 }
 async function jvStart() {
@@ -19315,7 +19316,8 @@ function jvPlayPcm(r, L, next) {
   const w = (o, t) => { for (let i = 0; i < t.length; i++) hd.setUint8(o + i, t.charCodeAt(i)); };
   w(0, 'RIFF'); hd.setUint32(4, 36 + pcm.length, true); w(8, 'WAVE'); w(12, 'fmt '); hd.setUint32(16, 16, true); hd.setUint16(20, 1, true); hd.setUint16(22, 1, true);
   hd.setUint32(24, rate, true); hd.setUint32(28, rate * 2, true); hd.setUint16(32, 2, true); hd.setUint16(34, 16, true); w(36, 'data'); hd.setUint32(40, pcm.length, true);
-  const url = URL.createObjectURL(new Blob([hd.buffer, pcm], { type: 'audio/wav' })), a = new Audio(url);
+  const url = URL.createObjectURL(new Blob([hd.buffer, pcm], { type: 'audio/wav' })), a = VC.au || (VC.au = new Audio());
+  a.onended = a.onerror = a.ontimeupdate = a.onplay = null; a.src = url;
   JV.audio = a;
   const dur = pcm.length / 2 / rate, tot = L.reduce((x, t) => x + t.length, 0), cut = []; let acc = 0; L.forEach(t => { cut.push(acc / tot * dur); acc += t.length; });
   a.ontimeupdate = () => { let k = 0; cut.forEach((c, i) => { if (a.currentTime >= c) k = i; }); if ($('jvSub') && $('jvSub').textContent !== L[k]) { $('jvSub').textContent = L[k]; jvShowFor(L[k]); } };
@@ -19631,8 +19633,11 @@ async function vcTtsGet(t) {
 function vcAudioUnlock() {
   if (!VC.au) VC.au = new Audio();
   if (VC.auOk) return;
-  try { VC.au.src = 'data:audio/wav;base64,UklGRiQAAABXQVZFZm10IBAAAAABAAEAQB8AAIA+AAACABAAZGF0YQAAAAA='; const p = VC.au.play(); if (p) p.then(() => { VC.auOk = 1; }).catch(() => { }); } catch (e) { }
+  // r170 เสียงเงียบ 0.2 วินาที (ไฟล์ว่างบางเครื่องไม่นับว่าเล่นแล้ว)
+  try { VC.au.src = 'data:audio/wav;base64,UklGRmQGAABXQVZFZm10IBAAAAABAAEAQB8AAEAfAAABAAgAZGF0YUAGAACAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICAgICA'; VC.au.volume = 1; const p = VC.au.play(); if (p) p.then(() => { VC.auOk = 1; }).catch(() => { }); } catch (e) { }
 }
+// r170 มือถือ (โดยเฉพาะ iPhone) ไม่ให้เล่นเสียงที่ไม่ได้เริ่มจากการแตะ: ปลดล็อกตัวเล่นตั้งแต่แตะหน้าจอครั้งแรก แล้วใช้ตัวเล่นตัวเดียวทั้งเสียงตอบและเสียงสรุป
+['pointerdown', 'touchend', 'keydown'].forEach(ev => document.addEventListener(ev, () => { if (!VC.auOk) vcAudioUnlock(); }, { passive: true, capture: true }));
 function vcPlayPcm(r) {
   return new Promise((ok, ko) => {
     const pcm = Uint8Array.from(atob(r.b64), c => c.charCodeAt(0)), rate = r.rate || 24000, hd = new DataView(new ArrayBuffer(44));
@@ -19668,7 +19673,14 @@ function vcSay(t, keep) {
     const toLocal = () => { if (local || ended) return; local = true; vcSayLocal(t, fin); };
     // r167 เคยได้เสียง AI แล้ว = รอเสียง AI (ไม่สลับเป็นเสียงเครื่อง ทำให้เสียงไม่เหมือนกัน) · สลับเฉพาะตอนสร้างเสียงไม่สำเร็จ
     const tm = setTimeout(toLocal, 30000);
-    vcTtsGet(t).then(r => { VC.ttsOk = 1; if (local || ended) return; clearTimeout(tm); vcPlayPcm(r).then(fin, toLocal); }).catch(() => { clearTimeout(tm); toLocal(); });
+    vcTtsGet(t).then(r => { VC.ttsOk = 1; if (local || ended) return; clearTimeout(tm); vcPlayPcm(r).then(fin, () => {
+      // r170 เครื่องไม่ยอมเล่นเสียงเอง → ปุ่มแตะเพื่อฟัง (8 วิ ไม่แตะ = แสดงข้อความอย่างเดียว)
+      const o = $('vcOv'); if (!o || o.querySelector('.vcplay')) { toLocal(); return; }
+      const b = document.createElement('button'); b.type = 'button'; b.className = 'jvx vcplay'; b.textContent = 'แตะเพื่อฟังเสียง';
+      const tm2 = setTimeout(() => { b.remove(); toLocal(); }, 8000);
+      b.onclick = e => { e.stopPropagation(); clearTimeout(tm2); b.remove(); VC.auOk = 0; vcAudioUnlock(); vcPlayPcm(r).then(fin, toLocal); };
+      o.insertBefore(b, $('vcX'));
+    }); }).catch(() => { clearTimeout(tm); toLocal(); });
     setTimeout(fin, 25000);
   });
 }

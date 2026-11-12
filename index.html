@@ -12881,12 +12881,13 @@ async function fmBoxEdit() {
   try { g = await impQuiet(['ioMailBoxGet'], () => run('ioMailBoxGet')); } catch (e) { toast(/ioMailBox|ไม่อนุญาต/.test(e.message) ? 'ต้องอัปเดต Apps Script ก่อน' : e.message); return; }
   const cp = (id, v) => '<span class="fmcp"><code id="' + id + '">' + esc(v) + '</code> <button type="button" class="sec fmcpB" data-c="' + id + '">คัดลอก</button></span>';
   const subj = "replace(triggerOutputs()?['body/subject'], '" + g.tag + " ', '')";
-  const cpN = (id, L) => '<span class="fmcp"><b>' + L.length + ' คน</b><code id="' + id + '" hidden>' + esc(L.join('; ')) + '</code> <button type="button" class="sec fmcpB" data-c="' + id + '">คัดลอกรายชื่อ</button></span>';
+  // r189 ช่อง To / CC ของ Power Automate วางหลายชื่อทีเดียวไม่ได้ → คัดลอกเป็นสูตร 'a@x;b@y' ไปวางในช่อง fx
+  const cpN = (id, L) => '<span class="fmcp"><b>' + L.length + ' คน</b><code id="' + id + '" hidden>' + esc("'" + fmAddrOnly(L).join(';') + "'") + '</code> <button type="button" class="sec fmcpB" data-c="' + id + '">คัดลอกสูตร</button></span>';
   const html = '<p class="hint">ทำครั้งเดียวต่อคน · ต้องใช้บัญชีอีเมลที่ทำงาน (Office 365) ของคุณเอง</p>' +
     '<ol class="fmbox">' +
     '<li>เปิด <b>make.powerautomate.com</b> ด้วยบัญชีอีเมลที่ทำงานของคุณ → <b>สร้าง</b> → <b>Automated cloud flow</b> → ตั้งชื่อ เช่น "IFS ดราฟเข้ากล่องของฉัน" → เลือกทริกเกอร์ <b>When a new email arrives (V3)</b> (Office 365 Outlook)</li>' +
     '<li>ในทริกเกอร์กด <b>Show all</b>: Folder = <b>Inbox</b> · From = ' + (g.from ? cp('fbFrom', g.from) : '<i>อีเมล Google ที่เป็นเจ้าของ Apps Script</i>') + ' · Subject Filter = ' + cp('fbTag', g.tag) + ' · Include Attachments = <b>No</b></li>' +
-    '<li><b>+ New step</b> → <b>Draft an email message</b> (Office 365 Outlook): To = ' + cpN('fbTo', FM_MAIL.to) + ' · CC = ' + cpN('fbCc', FM_MAIL.cc) + ' · Subject = กด <b>fx</b> แล้ววาง ' + cp('fbSub', subj) + ' · Body = <b>Body</b> (จากทริกเกอร์)</li>' +
+    '<li><b>+ New step</b> → <b>Draft an email message</b> (Office 365 Outlook): To = กด <b>fx</b> แล้ววาง ' + cpN('fbTo', FM_MAIL.to) + ' · CC = กด <b>fx</b> แล้ววาง ' + cpN('fbCc', FM_MAIL.cc) + ' · Subject = กด <b>fx</b> แล้ววาง ' + cp('fbSub', subj) + ' · Body = <b>Body</b> (จากทริกเกอร์)</li>' +
     '<li><b>+ New step</b> → <b>Delete email (V2)</b>: Message Id = <b>Message Id</b> (จากทริกเกอร์)</li>' +
     '<li>กด <b>Save</b> แล้วกรอกอีเมลที่ทำงานด้านล่าง → <b>บันทึก</b> → ลองกดดราฟอีกครั้ง</li></ol>' +
     '<label class="dl" style="display:block;margin:8px 0 4px">อีเมลที่ทำงานของคุณ (ที่สร้าง flow) <input id="fbMail" type="email" maxlength="120" value="' + esc(g.email || '') + '" placeholder="name@nokair.com" style="width:100%;box-sizing:border-box"></label>' +
